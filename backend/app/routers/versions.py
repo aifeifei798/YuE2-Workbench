@@ -1,10 +1,14 @@
-"""Per-version endpoints: detail, delete, fork, ABC draft, transcription, stems."""
+"""Per-version endpoints: detail, delete, fork, ABC draft, transcription, stems, exports."""
 
 import json
+import re
 import shutil
+import subprocess
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from ..core.config import settings
@@ -199,3 +203,73 @@ def version_stems(version_id: str):
         if p.exists():
             stems[name] = "/audio/" + str(p.relative_to(settings.data_dir))
     return {"stems": stems}
+
+
+def _download_name(v: Version, suffix: str) -> str:
+    db = SessionLocal()
+    try:
+        p = db.get(Project, v.project_id)
+        title = p.title if p else "version"
+    finally:
+        db.close()
+    safe = re.sub(r"[^\w\u4e00-\u9fff\-]+", "_", title).strip("_") or "version"
+    return f"{safe}_v{v.v:02d}{suffix}"
+
+
+@router.get("/{version_id}/export/mp3")
+def export_mp3(version_id: str):
+    """MP3 transcode of song.flac (cached alongside it)."""
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    src = vdir / "song.flac" if vdir else None
+    if not src or not src.exists():
+        raise HTTPException(404, "version has no audio")
+    out = vdir / "song.mp3"
+    if not out.exists():
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-b:a", "192k", str(out)],
+            check=True, capture_output=True,
+        )
+    return FileResponse(out, media_type="audio/mpeg", filename=_download_name(v, ".mp3"))
+
+
+@router.get("/{version_id}/export/stems.zip")
+def export_stems_zip(version_id: str):
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    sdir = vdir / "stems" if vdir else None
+    if not sdir or not (sdir / "vocals.flac").exists():
+        raise HTTPException(404, "还没有分轨,先跑一次分轨")
+    out = vdir / "stems.zip"
+    if not out.exists():
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
+            for name in ("vocals", "drums", "bass", "other"):
+                p = sdir / f"{name}.flac"
+                if p.exists():
+                    zf.write(p, f"{name}.flac")
+    return FileResponse(out, media_type="application/zip", filename=_download_name(v, "_stems.zip"))
+
+
+@router.get("/{version_id}/export/daw")
+def export_daw(version_id: str):
+    """DAW bundle: song + ABC + config + transcription (midi/lab) + stems, whatever exists."""
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    if not vdir or not (vdir / "song.flac").exists():
+        raise HTTPException(404, "version has no audio")
+    tdir = vdir / "transcription"
+    sdir = vdir / "stems"
+    parts = [vdir / "song.flac", vdir / "plan.abc", vdir / "config.json"]
+    if tdir.exists():
+        parts += [p for p in tdir.iterdir() if p.is_file()]
+    if (sdir / "vocals.flac").exists():
+        parts += [p for p in sdir.iterdir() if p.is_file()]
+    parts = [p for p in parts if p.exists()]
+    out = vdir / "daw.zip"
+    # rebuild if any source part is newer than the cached zip (stems/transcription may arrive later)
+    if not out.exists() or out.stat().st_mtime < max(p.stat().st_mtime for p in parts):
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
+            for p in parts:
+                rel = p.relative_to(vdir)
+                zf.write(p, str(rel))
+    return FileResponse(out, media_type="application/zip", filename=_download_name(v, "_daw.zip"))

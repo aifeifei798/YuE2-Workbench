@@ -10,6 +10,7 @@ import { CoverPage } from '@/pages/Cover'
 import { LeaderboardPage } from '@/pages/Leaderboard'
 import { SystemPage } from '@/pages/System'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { JobCenter } from '@/components/JobCenter'
 
 type Health = { status: string; models: { yue2: { loaded: boolean }; gpu?: { name: string; free_gb: number; total_gb: number } } }
 
@@ -56,6 +57,7 @@ function Nav() {
               {health.models.gpu.name} · 显存 {health.models.gpu.free_gb}/{health.models.gpu.total_gb} GB
             </span>
           )}
+          <JobCenter />
           <span className={`h-2 w-2 rounded-full ${health?.status === 'ok' ? 'bg-emerald-400' : 'bg-red-400'}`} />
         </div>
       </div>

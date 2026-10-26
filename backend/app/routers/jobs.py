@@ -55,6 +55,26 @@ async def cancel_job(job_id: str):
     return {"ok": True}
 
 
+@router.post("/{job_id}/retry", status_code=202)
+async def retry_job(job_id: str):
+    """Re-submit a terminal job with its original type/params."""
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if job is None:
+            raise HTTPException(404)
+        if job.status not in ("done", "failed", "cancelled"):
+            raise HTTPException(409, "job is still active")
+        from ..services.tasks import TASKS
+
+        if job.type not in TASKS:
+            raise HTTPException(400, f"unknown job type: {job.type}")
+        new = queue.submit(job.type, job.params or {}, project_id=job.project_id)
+        return {"job_id": new.id}
+    finally:
+        db.close()
+
+
 @router.delete("/{job_id}", status_code=204)
 def delete_job(job_id: str):
     db = SessionLocal()

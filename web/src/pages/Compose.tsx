@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LibraryBig } from 'lucide-react'
+import { Layers, LibraryBig } from 'lucide-react'
 import { Loader2, Music4, Sparkles } from 'lucide-react'
-import { api, type JobEvent } from '@/lib/api'
+import { api, TERMINAL, type Job, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Progress, Textarea } from '@/components/ui'
@@ -42,6 +42,19 @@ export function ComposePage() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // seed sweep: same form, N variants with different seeds; job ids survive a refresh
+  const [sweepMode, setSweepMode] = useState(false)
+  const [sweepCount, setSweepCount] = useState(3)
+  const [sweepJobIds, setSweepJobIds] = useState<string[] | null>(() => {
+    try {
+      const raw = localStorage.getItem('wb_sweep')
+      const parsed = raw ? (JSON.parse(raw) as string[]) : null
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : null
+    } catch {
+      return null
+    }
+  })
+  const [sweepSettled, setSweepSettled] = useState(false)
   const { events, done, job, result } = useJobStream(jobId)
 
   const latest = useMemo(() => lastStageEvent(events), [events])
@@ -55,12 +68,22 @@ export function ComposePage() {
     }
     setSubmitting(true)
     try {
-      const seed = seedText.trim() === '' ? null : Number(seedText)
-      const res = await api<{ job_id: string; project_id: string }>('/generate', {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim(), style, lyrics, cot, seed, cfg_scale: cfg }),
-      })
-      setJobId(res.job_id)
+      if (sweepMode) {
+        const res = await api<{ job_ids: string[]; seeds: number[]; project_id: string }>('/generate/sweep', {
+          method: 'POST',
+          body: JSON.stringify({ title: title.trim(), style, lyrics, cot, n: sweepCount, cfg_scale: cfg }),
+        })
+        localStorage.setItem('wb_sweep', JSON.stringify(res.job_ids))
+        setSweepJobIds(res.job_ids)
+        setSweepSettled(false)
+      } else {
+        const seed = seedText.trim() === '' ? null : Number(seedText)
+        const res = await api<{ job_id: string; project_id: string }>('/generate', {
+          method: 'POST',
+          body: JSON.stringify({ title: title.trim(), style, lyrics, cot, seed, cfg_scale: cfg }),
+        })
+        setJobId(res.job_id)
+      }
     } catch (e) {
       setError(String(e))
     } finally {
@@ -120,16 +143,47 @@ export function ComposePage() {
               />
             </div>
           </div>
+          {sweepMode && (
+            <div>
+              <Label hint="同表单跑 N 个随机 seed,串行生成">变体数量</Label>
+              <SelectMenu
+                value={String(sweepCount)}
+                onChange={(v) => setSweepCount(Number(v))}
+                options={[2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} 个变体` }))}
+              />
+            </div>
+          )}
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
-          <Button className="w-full" onClick={submit} disabled={submitting || !!jobId && !done || !title.trim()}>
-            {jobId && !done ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
-            {jobId && !done ? '生成中…' : '生成歌曲'}
+          <Button className="w-full" onClick={submit} disabled={submitting || !!jobId && !done || !!sweepJobIds && !sweepSettled || !title.trim()}>
+            {jobId && !done || !!sweepJobIds && !sweepSettled ? <Loader2 className="animate-spin" size={15} /> : sweepMode ? <Layers size={15} /> : <Sparkles size={15} />}
+            {jobId && !done ? '生成中…' : sweepMode ? `批量生成 ${sweepCount} 个变体` : '生成歌曲'}
           </Button>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400">
+            <input
+              type="checkbox"
+              checked={sweepMode}
+              onChange={(e) => setSweepMode(e.target.checked)}
+              className="accent-emerald-500"
+              disabled={!!sweepJobIds && !sweepSettled}
+            />
+            种子扫描模式(同词同曲风,多个 seed 出变体,跑完可自动评测对比)
+          </label>
         </CardBody>
       </Card>
 
       <div className="space-y-5">
-        {!jobId && <EmptyState />}
+        {sweepJobIds && (
+          <SweepPanel
+            jobIds={sweepJobIds}
+            onSettled={() => setSweepSettled(true)}
+            onClear={() => {
+              localStorage.removeItem('wb_sweep')
+              setSweepJobIds(null)
+              setSweepSettled(false)
+            }}
+          />
+        )}
+        {!sweepJobIds && !jobId && <EmptyState />}
         {jobId && <JobPanel jobId={jobId} latest={latest} events={events} elapsed={elapsed} done={done} />}
         {done && result && <ResultCard result={result as GenResult} job={job} />}
       </div>
@@ -250,6 +304,150 @@ function ResultCard({ result, job }: { result: GenResult; job: ReturnType<typeof
         {libJob && !libStream.done && <div className="text-xs text-zinc-500">正在分析入库…(MERT 特征 + 标签)</div>}
         {libStream.done && libStream.job?.result && (
           <div className="text-xs text-emerald-400">已加入音乐库,<Link to="/library" className="hover:underline">去查看 →</Link></div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+type SweepResult = GenResult & { project_id: string }
+
+function SweepPanel({
+  jobIds,
+  onSettled,
+  onClear,
+}: {
+  jobIds: string[]
+  onSettled: () => void
+  onClear: () => void
+}) {
+  const [jobs, setJobs] = useState<Record<string, Job>>({})
+  const [duelJobId, setDuelJobId] = useState<string | null>(null)
+  const duelStream = useJobStream(duelJobId)
+  const settledRef = useRef(false)
+
+  const active = jobIds.filter((id) => jobs[id] && !TERMINAL.has(jobs[id].status)).length
+  const doneRows = jobIds
+    .map((id) => jobs[id])
+    .filter((j) => j?.status === 'done' && j.result)
+  const allDone = jobIds.length > 0 && active === 0
+
+  useEffect(() => {
+    let alive = true
+    const poll = () => {
+      Promise.all(
+        jobIds.map((id) => api<Job>(`/jobs/${id}`).then((j) => [id, j] as const).catch(() => null)),
+      ).then((pairs) => {
+        if (!alive) return
+        const next: Record<string, Job> = {}
+        for (const p of pairs) if (p) next[p[0]] = p[1]
+        setJobs(next)
+      })
+    }
+    poll()
+    const t = setInterval(poll, 2500)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [jobIds])
+
+  useEffect(() => {
+    if (allDone && !settledRef.current) {
+      settledRef.current = true
+      onSettled()
+    }
+  }, [allDone, onSettled])
+
+  function runDuel() {
+    const ids = doneRows.slice(0, 2).map((j) => (j.result as SweepResult).version_id)
+    api<{ job_id: string }>('/evaluate', {
+      method: 'POST',
+      body: JSON.stringify({ version_ids: ids, labels: ['A', 'B'] }),
+    })
+      .then((r) => setDuelJobId(r.job_id))
+      .catch((e) => alert(String(e)))
+  }
+
+  const duel = duelStream.result as
+    | { evals: Record<string, unknown>; duel: { rows: { metric: string; a: unknown; b: unknown; winner: string | null }[]; auto_suggestion: string } | null }
+    | undefined
+
+  return (
+    <Card>
+      <CardHeader
+        title={<span className="flex items-center gap-2"><Layers size={15} /> 种子扫描({doneRows.length}/{jobIds.length} 完成)</span>}
+        desc="同词同曲风不同 seed,串行生成;挑最好的进项目继续加工"
+        right={
+          <button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={onClear}>
+            {allDone ? '收起' : '后台运行(任务中心可见)'}
+          </button>
+        }
+      />
+      <CardBody className="space-y-3">
+        {jobIds.map((id, i) => {
+          const j = jobs[id]
+          const res = j?.result as SweepResult | undefined
+          return (
+            <div key={id} className="rounded-lg border border-zinc-800 p-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-14 shrink-0 font-mono text-xs text-zinc-400">#{i + 1}</span>
+                {j ? <Badge status={j.status} /> : <Badge status="queued" />}
+                <span className="text-xs text-zinc-500">
+                  {j?.params && (j.params as Record<string, unknown>).seed != null
+                    ? `seed ${String((j.params as Record<string, unknown>).seed)}`
+                    : '排队中…'}
+                </span>
+                <span className="flex-1" />
+                {j?.status === 'failed' && <span className="min-w-0 truncate text-[11px] text-red-400">{j.error}</span>}
+                {res && <span className="text-[11px] text-zinc-500">{res.duration}s</span>}
+              </div>
+              {res && (
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="min-w-0 flex-1"><AudioPlayer url={res.urls.audio} height={40} /></div>
+                  <Link to={`/projects/${res.project_id}`} className="shrink-0 text-xs text-emerald-400 hover:underline">
+                    打开项目 →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {allDone && doneRows.length >= 2 && !duelJobId && (
+          <Button size="sm" variant="outline" onClick={runDuel}>
+            自动评测对比(前两个变体)
+          </Button>
+        )}
+        {duelJobId && !duelStream.done && (
+          <div className="text-xs text-zinc-500">
+            评测中…{duelStream.events.length > 0 && ` · ${duelStream.events[duelStream.events.length - 1].detail ?? ''}`}
+          </div>
+        )}
+        {duelStream.done && duel?.duel && (
+          <div className="overflow-hidden rounded-lg border border-zinc-800">
+            <table className="w-full text-xs">
+              <thead className="bg-zinc-900 text-zinc-400">
+                <tr><th className="px-2 py-1.5 text-left">指标</th><th className="px-2 py-1.5">A</th><th className="px-2 py-1.5">B</th><th className="px-2 py-1.5">占优</th></tr>
+              </thead>
+              <tbody>
+                {duel.duel.rows.map((r, i) => (
+                  <tr key={i} className="border-t border-zinc-800">
+                    <td className="px-2 py-1.5 text-zinc-300">{r.metric}</td>
+                    <td className="px-2 py-1.5 text-center font-mono text-zinc-400">{String(r.a ?? '—')}</td>
+                    <td className="px-2 py-1.5 text-center font-mono text-zinc-400">{String(r.b ?? '—')}</td>
+                    <td className={`px-2 py-1.5 text-center ${r.winner === 'tie' ? 'text-zinc-500' : 'text-emerald-400'}`}>{r.winner ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t border-zinc-800 bg-zinc-900/60 px-2 py-1.5 text-[11px] text-zinc-400">
+              自动倾向:<span className="text-emerald-400">{duel.duel.auto_suggestion}</span>(最终以人耳对听为准,进项目用 A/B 对比)
+            </div>
+          </div>
+        )}
+        {duelStream.done && duel && !duel.duel && (
+          <div className="text-xs text-zinc-500">评测完成,但变体不足两个有效结果,无法对比。</div>
         )}
       </CardBody>
     </Card>

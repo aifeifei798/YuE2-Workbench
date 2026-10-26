@@ -919,6 +919,13 @@ function Workspace({
         <CardHeader title="工件" />
         <CardBody className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
           <a href={version.urls.audio} download className="hover:text-emerald-400">FLAC</a>
+          <a href={`/api/versions/${version.id}/export/mp3`} download className="hover:text-emerald-400" title="MP3 转码(192k)">MP3</a>
+          {detail?.has_stems ? (
+            <a href={`/api/versions/${version.id}/export/stems.zip`} download className="hover:text-emerald-400">分轨 ZIP</a>
+          ) : (
+            <span className="text-zinc-600" title="先跑一次分轨">分轨 ZIP</span>
+          )}
+          <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title="整曲 + ABC + 转录 MIDI + 分轨打包">DAW 包</a>
           <button
             className="hover:text-emerald-400"
             onClick={() => {
