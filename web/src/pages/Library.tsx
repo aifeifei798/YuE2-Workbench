@@ -151,9 +151,9 @@ export function LibraryPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="ghost" size="sm" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}>相似</Button>
-                  <Button variant="ghost" size="sm" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={13} /> 歌单</Button>
-                  <Button variant="ghost" size="sm" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh)}><Trash2 size={13} /></Button>
+                  <Button variant="ghost" size="sm" title="找相似" className="h-8 w-8 p-0" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}><Sparkles size={15} /></Button>
+                  <Button variant="ghost" size="sm" title="生成歌单" className="h-8 w-8 p-0" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={15} /></Button>
+                  <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh)}><Trash2 size={15} /></Button>
                 </div>
               </div>
               <div className="mt-2"><AudioPlayer url={it.audio_url} height={44} /></div>

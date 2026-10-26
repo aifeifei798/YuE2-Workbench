@@ -10,7 +10,7 @@ export function Button({ variant = 'default', size = 'md', className, ...props }
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
         size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm',
         variant === 'default' && 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400',
         variant === 'outline' && 'border border-zinc-700 bg-transparent text-zinc-100 hover:bg-zinc-800',

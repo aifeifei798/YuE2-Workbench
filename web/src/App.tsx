@@ -25,24 +25,24 @@ function Nav() {
         <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
           <AudioLines size={17} className="text-emerald-400" /> YuE2 Workbench
         </span>
-        <nav className="flex items-center gap-1 text-sm">
-          <NavLink to="/" end className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Sparkles size={14} /> 创作台
+        <nav className="flex flex-nowrap items-center gap-1 overflow-x-auto text-sm">
+          <NavLink to="/" title="创作台" end className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Sparkles size={14} /><span className="hidden md:inline">创作台</span>
           </NavLink>
-          <NavLink to="/projects" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <FolderOpen size={14} /> 项目库
+          <NavLink to="/projects" title="项目库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <FolderOpen size={14} /><span className="hidden md:inline">项目库</span>
           </NavLink>
-          <NavLink to="/transcribe" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <FileAudio size={14} /> 扒谱
+          <NavLink to="/transcribe" title="扒谱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <FileAudio size={14} /><span className="hidden md:inline">扒谱</span>
           </NavLink>
-          <NavLink to="/library" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <LibraryBig size={14} /> 音乐库
+          <NavLink to="/library" title="音乐库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <LibraryBig size={14} /><span className="hidden md:inline">音乐库</span>
           </NavLink>
-          <NavLink to="/cover" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Mic2 size={14} /> 翻唱
+          <NavLink to="/cover" title="翻唱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Mic2 size={14} /><span className="hidden md:inline">翻唱</span>
           </NavLink>
-          <NavLink to="/leaderboard" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Trophy size={14} /> 排行榜
+          <NavLink to="/leaderboard" title="排行榜" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Trophy size={14} /><span className="hidden md:inline">排行榜</span>
           </NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
 import { api, type ProjectSummary } from '@/lib/api'
 import { Button, Card, CardBody } from '@/components/ui'
 
@@ -34,8 +35,8 @@ export function ProjectsPage() {
               <div className="ml-4 flex shrink-0 items-center gap-3 text-xs text-zinc-500">
                 <span>{p.version_count} 版本</span>
                 <span>{new Date(p.created_at * 1000).toLocaleString()}</span>
-                <Button variant="ghost" size="sm" onClick={() => api(`/projects/${p.id}`, { method: 'DELETE' }).then(() => setProjects((ps) => ps.filter((x) => x.id !== p.id)))}>
-                  删除
+                <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/projects/${p.id}`, { method: 'DELETE' }).then(() => setProjects((ps) => ps.filter((x) => x.id !== p.id)))}>
+                  <Trash2 size={15} />
                 </Button>
               </div>
             </CardBody>

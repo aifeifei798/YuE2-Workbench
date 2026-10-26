@@ -44,6 +44,7 @@ export function AudioPlayer({ url, height = 72 }: { url: string; height?: number
         disabled={!ready}
         onClick={() => wsRef.current?.playPause()}
         aria-label={playing ? '暂停' : '播放'}
+        title={playing ? '暂停' : '播放'}
       >
         {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
       </Button>
