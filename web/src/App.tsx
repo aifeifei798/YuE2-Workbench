@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { AudioLines, FileAudio, FolderOpen, LibraryBig, Mic2, Sparkles, Trophy } from 'lucide-react'
+import { AudioLines, FileAudio, FolderOpen, LibraryBig, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
 import { ComposePage } from '@/pages/Compose'
 import { ProjectsPage } from '@/pages/Projects'
 import { ProjectPage } from '@/pages/Project'
@@ -8,6 +8,7 @@ import { TranscribePage } from '@/pages/Transcribe'
 import { LibraryPage } from '@/pages/Library'
 import { CoverPage } from '@/pages/Cover'
 import { LeaderboardPage } from '@/pages/Leaderboard'
+import { SystemPage } from '@/pages/System'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 type Health = { status: string; models: { yue2: { loaded: boolean }; gpu?: { name: string; free_gb: number; total_gb: number } } }
@@ -45,6 +46,9 @@ function Nav() {
           <NavLink to="/leaderboard" title="排行榜" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Trophy size={14} /><span className="hidden md:inline">排行榜</span>
           </NavLink>
+          <NavLink to="/system" title="系统/模型管理" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Settings size={14} /><span className="hidden md:inline">系统</span>
+          </NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">
           {health?.models?.gpu && (
@@ -74,6 +78,7 @@ export default function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/cover" element={<CoverPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/system" element={<SystemPage />} />
           </Routes>
           </ErrorBoundary>
         </main>

@@ -1,0 +1,93 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Download, Loader2, Upload } from 'lucide-react'
+import { api } from '@/lib/api'
+import { Button, Card, CardBody } from '@/components/ui'
+import { cn } from '@/lib/job'
+
+type ModelRow = { name: string; label: string; repo: string; vram: string; loaded: boolean }
+
+export function SystemPage() {
+  const [rows, setRows] = useState<ModelRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const refresh = useCallback(() => {
+    api<ModelRow[]>('/models').then(setRows).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+  useEffect(refresh, [refresh])
+
+  useEffect(() => {
+    if (!busy) return
+    const t = setInterval(() => {
+      api<ModelRow[]>('/models').then((rs) => {
+        setRows(rs)
+        if (rs.find((r) => r.name === busy)?.loaded) setBusy(null)
+      }).catch(() => {})
+    }, 3000)
+    return () => clearInterval(t)
+  }, [busy])
+
+  async function load(name: string) {
+    setBusy(name)
+    try {
+      await api(`/models/${name}/load`, { method: 'POST' })
+    } catch (e) {
+      alert(String(e))
+      setBusy(null)
+    }
+  }
+
+  async function unload(name: string) {
+    setBusy(name)
+    try {
+      await api(`/models/${name}/unload`, { method: 'POST' })
+      refresh()
+      setBusy(null)
+    } catch (e) {
+      alert(String(e))
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-lg font-semibold">系统 · 模型管理</h1>
+        <span className="text-xs text-zinc-500">首次加载耗时从秒级到几分钟不等;装卸立即生效</span>
+      </div>
+      {loading && <div className="text-sm text-zinc-500">加载中…</div>}
+      <div className="space-y-2">
+        {rows.map((m) => (
+          <Card key={m.name}>
+            <CardBody className="flex items-center justify-between py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-100">{m.label}</span>
+                  <span className={`h-2 w-2 rounded-full ${m.loaded ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                  <span className="text-[11px] text-zinc-500">{m.loaded ? '已驻留' : '未加载'}</span>
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-zinc-500">
+                  {m.repo} · 显存 {m.vram}
+                </div>
+              </div>
+              <div className="ml-4 flex shrink-0 items-center gap-2">
+                {m.loaded ? (
+                  <Button size="sm" variant="outline" disabled={busy === m.name} onClick={() => unload(m.name)} title="从显存卸载,释放空间">
+                    {busy === m.name ? <Loader2 className="animate-spin" size={13} /> : <Download size={13} />} 卸载
+                  </Button>
+                ) : (
+                  <Button size="sm" disabled={busy === m.name} onClick={() => load(m.name)} title="加载到显存">
+                    {busy === m.name ? <Loader2 className="animate-spin" size={13} /> : <Upload size={13} />} 加载
+                  </Button>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+      <p className={cn('mt-4 text-xs text-zinc-500')}>
+        说明:模型按需懒加载,不手动加载也会在用到时自动载入;全部卸载后首次生成会重新加载 YuE2(约 10 秒)。
+      </p>
+    </div>
+  )
+}

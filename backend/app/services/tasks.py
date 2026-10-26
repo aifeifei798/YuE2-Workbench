@@ -398,6 +398,82 @@ def run_evaluate_batch(params: dict, emit, cancelled) -> dict:
         return {"evaluated": done, "remaining": max(0, len(rows) - len(done))}
     finally:
         db.close()
+def run_lyrics(params: dict, emit, cancelled) -> dict:
+    from pathlib import Path
+
+    from ..core.db import SessionLocal
+    from ..models.tables import Version
+    from .asr_svc import transcribe_lyrics
+
+    src = params.get("path")
+    if not src and params.get("version_id"):
+        db = SessionLocal()
+        try:
+            v = db.get(Version, params["version_id"])
+            if v is None or not v.audio_path:
+                raise ValueError("version not found or has no audio")
+            src = v.audio_path
+        finally:
+            db.close()
+    if not src or not Path(src).exists():
+        raise ValueError("provide path or version_id")
+    return transcribe_lyrics(src, emit=emit, language=params.get("language"))
+
+
+def run_analyze(params: dict, emit, cancelled) -> dict:
+    import json as _json
+    from pathlib import Path
+
+    from ..core.db import SessionLocal
+    from ..models.tables import Version
+    from .library_svc import compute_tags
+    from .mert_svc import analyze_file, segment_structure
+
+    db = SessionLocal()
+    try:
+        v = db.get(Version, params["version_id"]) if params.get("version_id") else None
+        if v is not None and (not v.audio_path or not Path(v.audio_path).exists()):
+            raise ValueError("version has no audio")
+        src = params.get("path") or v.audio_path
+        result = analyze_file(src, emit)
+        segments = segment_structure(result["frames_25hz"])
+        out = {
+            "duration": result["duration"],
+            "segments": segments,
+            "tags": compute_tags(src),
+            "embedding_shape": list(result["embedding"].shape),
+        }
+        if v is not None:
+            (Path(v.audio_path).parent / "analysis.json").write_text(
+                _json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+            out["saved"] = True
+        return out
+    finally:
+        db.close()
+
+
+def run_model_load(params: dict, emit, cancelled) -> dict:
+    name = params["name"]
+    emit(stage="load_model", detail=f"loading {name}")
+    if name == "yue2":
+        models.pipeline()
+    elif name == "sheetsage2":
+        models.sheetsage()
+    elif name == "mert":
+        models.mert()
+    elif name == "htdemucs":
+        models.demucs()
+    elif name == "asr":
+        models.asr()
+    elif name == "agent":
+        models.agent_llm()
+    elif name == "vae":
+        models.vae()
+    else:
+        raise ValueError(f"unknown model: {name}")
+    emit(stage="done", detail=f"{name} loaded")
+    return {"model": name, "loaded": True}
 
 
 TASKS = {
@@ -412,4 +488,7 @@ TASKS = {
     "agent_edit": run_agent_edit,
     "evaluate": run_evaluate,
     "evaluate_batch": run_evaluate_batch,
+    "lyrics": run_lyrics,
+    "analyze": run_analyze,
+    "model_load": run_model_load,
 }

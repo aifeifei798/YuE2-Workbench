@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Bot, ChevronLeft, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler } from 'lucide-react'
+import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler, Trash2 } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -22,6 +22,23 @@ type AgentEditResult = {
   info_before: { key?: [string, string] | null; tempo?: number | null }
   info_after: { key?: [string, string] | null; tempo?: number | null }
 }
+type VersionDetail = {
+  id: string
+  abc_draft: { abc: string; note: string; updated_at: number } | null
+  has_transcription: boolean
+  has_stems: boolean
+  has_beats: boolean
+  has_analysis: boolean
+  project_title: string
+}
+type TransInfo = {
+  abc: string
+  files: Record<string, string>
+  summary: { keys?: { key?: string }[]; tempo?: number | null; structures?: { label: string }[] }
+  n_beats: number
+  n_downbeats: number
+}
+type AgentHistItem = { t: number; instruction: string; steps: { tool: string; args: Record<string, unknown> }[] }
 type EvalResult = {
   evals: Record<string, Record<string, unknown>>
   duel: { rows: { metric: string; a: unknown; b: unknown; winner: string | null }[]; auto_suggestion: string } | null
@@ -191,6 +208,18 @@ function Workspace({
   const duelStream = useJobStream(duelJob)
   const [libJob, setLibJob] = useState<string | null>(null)
   const libStream = useJobStream(libJob)
+  const [detail, setDetail] = useState<VersionDetail | null>(null)
+  const [showStems, setShowStems] = useState(false)
+  const [stems, setStems] = useState<Record<string, string> | null>(null)
+  const [stemJob, setStemJob] = useState<string | null>(null)
+  const stemStream = useJobStream(stemJob)
+  const [showTrans, setShowTrans] = useState(false)
+  const [trans, setTrans] = useState<TransInfo | null>(null)
+  const [transJob, setTransJob] = useState<string | null>(null)
+  const transStream = useJobStream(transJob)
+  const [agentHist, setAgentHist] = useState<AgentHistItem[]>([])
+  const [savedDraft, setSavedDraft] = useState(false)
+  const stemJobRef = useRef(false)
 
   const punchResult = useMemo(
     () => (punchStream.job?.result ?? punchStream.events.find((e) => e.result)?.result) as PunchResult | undefined,
@@ -248,6 +277,40 @@ function Workspace({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rerenderStream.done])
+
+  useEffect(() => {
+    if (stemStream.done && stemStream.job?.result && version) {
+      setStemJob(null)
+      stemJobRef.current = false
+      api<{ stems: Record<string, string> }>(`/versions/${version.id}/stems`).then((r) => {
+        setStems(r.stems)
+        setShowStems(true)
+      }).catch(() => {})
+      onRefresh()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stemStream.done])
+
+  useEffect(() => {
+    if (transStream.done && transStream.job?.result && version) {
+      setTransJob(null)
+      api<TransInfo>(`/versions/${version.id}/transcription`).then((r) => {
+        setTrans(r)
+        setShowTrans(true)
+      }).catch(() => {})
+      onRefresh()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transStream.done])
+
+  useEffect(() => {
+    if (showAgent) {
+      if (version) api<AgentHistItem[]>(`/agent/history?version_id=${version.id}`).then(setAgentHist).catch(() => {})
+    } else {
+      setAgentHist([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAgent, version?.id])
 
   useEffect(() => {
     setRegion(null)
@@ -371,6 +434,80 @@ function Workspace({
       .catch((e) => alert(String(e)))
   }
 
+  function forkVersion() {
+    if (!version) return
+    if (!window.confirm(`复制 v${version.v} 为新版本?`)) return
+    api<{ version_id: string }>(`/versions/${version.id}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({ note: `自 v${version.v} 复制` }),
+    })
+      .then(() => {
+        onRefresh()
+        setTimeout(() => api<ProjectDetail>(`/projects/${project.id}`).then((p) => {
+          const nv = p.versions.find((x) => x.source === 'fork')
+          if (nv) onSelect(nv)
+        }), 800)
+      })
+      .catch((e) => alert(String(e)))
+  }
+
+  function deleteVersion() {
+    if (!version) return
+    if (!window.confirm(`删除 v${version.v}?音频与全部工件将一并删除,不可恢复。`)) return
+    api(`/versions/${version.id}`, { method: 'DELETE' })
+      .then(() => {
+        onSelect(null as unknown as VersionOut)
+        onRefresh()
+      })
+      .catch((e) => alert(String(e)))
+  }
+
+  function saveDraft() {
+    if (!version || !abcDraft.trim()) return
+    api(`/versions/${version.id}/abc`, {
+      method: 'PUT',
+      body: JSON.stringify({ abc: abcDraft, note: '工作区草稿' }),
+    })
+      .then(() => {
+        setSavedDraft(true)
+        api<VersionDetail>(`/versions/${version.id}`).then(setDetail).catch(() => {})
+      })
+      .catch((e) => alert(String(e)))
+  }
+
+  function loadStems() {
+    if (!version) return
+    if (detail?.has_stems) {
+      if (stems) { setShowStems(false); return }
+      api<{ stems: Record<string, string> }>(`/versions/${version.id}/stems`).then((r) => {
+        setStems(r.stems)
+        setShowStems(true)
+      }).catch((e) => alert(String(e)))
+      return
+    }
+    if (stemJobRef.current) return
+    stemJobRef.current = true
+    api<{ job_id: string }>('/stems', { method: 'POST', body: JSON.stringify({ version_id: version.id }) })
+      .then((r) => setStemJob(r.job_id))
+      .catch((e) => { alert(String(e)); stemJobRef.current = false })
+  }
+
+  function loadTranscription() {
+    if (!version) return
+    if (detail?.has_transcription) {
+      if (trans && showTrans) { setShowTrans(false); return }
+      api<TransInfo>(`/versions/${version.id}/transcription`).then((r) => {
+        setTrans(r)
+        setShowTrans(true)
+      }).catch((e) => alert(String(e)))
+      return
+    }
+    if (!window.confirm('该版本还没扒过谱,现在跑一次 SheetSage2 转录?(约 30~60s)')) return
+    api<{ job_id: string }>('/transcribe', { method: 'POST', body: JSON.stringify({ version_id: version.id }) })
+      .then((r) => setTransJob(r.job_id))
+      .catch((e) => alert(String(e)))
+  }
+
   function runAgent() {
     if (!version || !agentInstruction.trim()) return
     api<{ job_id: string }>('/agent/edit', {
@@ -441,8 +578,14 @@ function Workspace({
             <Button size="sm" variant="outline" onClick={() => { setShowRelLyrics((s) => !s); setRelLyrics(String(cfg.lyrics ?? '')) }}>
               <Repeat size={13} /> 改词重唱
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAbc((s) => !s); setAbcDraft(version.abc ?? '') }}>
-              <PencilRuler size={13} /> ABC 编辑
+            <Button size="sm" variant="outline" onClick={loadTranscription}>
+              {transJob && !transStream.done ? <Loader2 className="animate-spin" size={13} /> : <FileSearch size={13} />} 转录
+            </Button>
+            <Button size="sm" variant="outline" onClick={loadStems}>
+              {stemJob && !stemStream.done ? <Loader2 className="animate-spin" size={13} /> : <AudioLines size={13} />} 分轨
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setShowAbc((s) => !s); setAbcDraft(detail?.abc_draft?.abc ?? version.abc ?? '') }}>
+              <PencilRuler size={13} /> ABC 编辑{detail?.abc_draft ? ' ·' : ''}
             </Button>
           </div>
         </CardBody>
@@ -486,15 +629,63 @@ function Workspace({
         </Card>
       )}
 
+      {showStems && stems && (
+        <Card>
+          <CardHeader title="分轨试听" desc="HTDemucs 四轨,可分别独听(重渲染仍为整曲行为)" />
+          <CardBody className="space-y-2">
+            {[['vocals', '人声'], ['drums', '鼓'], ['bass', '贝斯'], ['other', '其他']].map(([k, label]) =>
+              stems[k] ? (
+                <div key={k} className="flex items-center gap-3">
+                  <span className="w-10 shrink-0 text-xs text-zinc-400">{label}</span>
+                  <div className="min-w-0 flex-1"><AudioPlayer url={stems[k]} height={40} /></div>
+                </div>
+              ) : null,
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {showTrans && trans && (
+        <Card>
+          <CardHeader
+            title="版本转录"
+            desc={[trans.summary.keys?.[0]?.key && `调性 ${trans.summary.keys[0].key}`, trans.summary.tempo && `${trans.summary.tempo} BPM`, `${trans.n_beats} 拍 / ${trans.n_downbeats} 强拍`].filter(Boolean).join(' · ')}
+          />
+          <CardBody className="space-y-3">
+            <Notation abc={trans.abc} height={240} />
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-400">
+              {Object.entries(trans.files).map(([name, url]) => (
+                <a key={name} href={url} download className="hover:text-emerald-400">{name}</a>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {transJob && !transStream.done && <JobPanel jobId={transJob} events={transStream.events} done={transStream.done} title="扒谱中" />}
+      {stemJob && !stemStream.done && <JobPanel jobId={stemJob} events={stemStream.events} done={stemStream.done} title="分离分轨" />}
+
       {showAbc && (
         <Card className="scroll-mt-16" id="abc-editor">
-          <CardHeader title="ABC 乐谱编辑" desc="改谱后整曲重渲染:新谱严格约束旋律与和弦,演绎为全新一版(挖补才是局部替换)" />
+          <CardHeader
+            title="ABC 乐谱编辑"
+            desc={
+              detail?.abc_draft
+                ? `已载入未渲染草稿(${new Date(detail.abc_draft.updated_at * 1000).toLocaleString()}保存)`
+                : "改谱后整曲重渲染:新谱严格约束旋律与和弦,演绎为全新一版(挖补才是局部替换)"
+            }
+          />
           <CardBody className="space-y-3">
             <Textarea rows={12} value={abcDraft} onChange={(e) => setAbcDraft(e.target.value)} className="font-mono text-[12px]" />
             <Notation abc={abcDraft} height={260} />
-            <Button disabled={!!rerenderJob && !rerenderStream.done || !abcDraft.trim()} onClick={rerenderFull}>
-              {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : null} 重渲染整曲
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" disabled={!abcDraft.trim() || abcDraft === version.abc && !detail?.abc_draft} onClick={saveDraft} title="把当前编辑保存为草稿,刷新不丢">
+                {savedDraft ? '草稿已保存' : '保存草稿'}
+              </Button>
+              <Button disabled={!!rerenderJob && !rerenderStream.done || !abcDraft.trim()} onClick={rerenderFull}>
+                {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : null} 重渲染整曲
+              </Button>
+            </div>
           </CardBody>
         </Card>
       )}
@@ -602,6 +793,19 @@ function Workspace({
                 <Button size="sm" onClick={adoptProposal}>采纳到编辑器(可再手改后重渲染)</Button>
               </div>
             )}
+            {showAgent && agentHist.length > 0 && (
+              <details className="text-xs text-zinc-500">
+                <summary className="cursor-pointer select-none">历史指令({agentHist.length})</summary>
+                <div className="mt-2 space-y-1">
+                  {agentHist.map((h, i) => (
+                    <div key={i} className="rounded-lg bg-zinc-950 px-2 py-1.5">
+                      <span className="text-zinc-400">{new Date(h.t * 1000).toLocaleString()}</span>
+                      <span className="ml-2 text-zinc-200">{h.instruction}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </CardBody>
         )}
       </Card>
@@ -634,6 +838,8 @@ function Workspace({
           <a href={version.urls.semantic} download className="hover:text-emerald-400">语义 token</a>
           {cfg.abc_provided ? <span className="text-emerald-400/70">外部乐谱驱动</span> : null}
           <span className="flex-1" />
+          <Button size="sm" variant="ghost" title="复制为新版本" className="h-8 w-8 p-0" onClick={forkVersion}><Copy size={14} /></Button>
+          <Button size="sm" variant="ghost" title="删除此版本" className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400" onClick={deleteVersion}><Trash2 size={14} /></Button>
           <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done} onClick={addToLibrary} title="把当前版本加入音乐库(自动分析打标)">
             {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} 加入音乐库
           </Button>

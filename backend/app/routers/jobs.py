@@ -55,6 +55,22 @@ async def cancel_job(job_id: str):
     return {"ok": True}
 
 
+@router.delete("/{job_id}", status_code=204)
+def delete_job(job_id: str):
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if job is None:
+            raise HTTPException(404)
+        if job.status not in ("done", "failed", "cancelled"):
+            raise HTTPException(409, "cancel the job before deleting it")
+        db.delete(job)
+        db.commit()
+        queue.runtimes.pop(job_id, None)
+    finally:
+        db.close()
+
+
 @router.get("/{job_id}/events")
 async def job_events(job_id: str):
     rt = queue.runtimes.get(job_id)

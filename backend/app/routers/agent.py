@@ -106,3 +106,73 @@ async def evaluate(req: EvaluateIn):
         req.labels = ["A", "B"]
     job = queue.submit("evaluate", {"version_ids": req.version_ids, "labels": req.labels})
     return {"job_id": job.id}
+
+
+@router.get("/agent/history")
+def agent_history(version_id: str):
+    from ..core.db import SessionLocal
+    from ..models.tables import Version
+    from ..services.agent_svc import agent_history as _hist
+
+    db = SessionLocal()
+    try:
+        version = db.get(Version, version_id)
+        if version is None:
+            raise HTTPException(404)
+        return _hist(version)
+    finally:
+        db.close()
+
+
+@router.post("/agent/apply")
+def agent_apply(req: dict):
+    """Adopt a proposed score as the version's ABC draft (render via /api/generate)."""
+    from ..core.db import SessionLocal
+    from ..models.tables import Version
+    from ..services.agent_svc import save_draft
+
+    version_id = (req or {}).get("version_id")
+    abc = (req or {}).get("abc") or ""
+    if not version_id or not abc.strip():
+        raise HTTPException(400, "version_id and abc required")
+    db = SessionLocal()
+    try:
+        version = db.get(Version, version_id)
+        if version is None:
+            raise HTTPException(404)
+        draft = save_draft(version, abc, str((req or {}).get("note") or "agent 提案"))
+        return {"saved": True, "updated_at": draft["updated_at"]}
+    finally:
+        db.close()
+
+
+@router.post("/duel")
+def duel_standlone(req: dict):
+    """Metrics duel between two evaluated versions (sync, no job)."""
+    import json as _json
+    from pathlib import Path
+
+    from ..core.config import settings
+    from ..core.db import SessionLocal
+    from ..models.tables import Version
+    from ..services.eval_svc import duel
+
+    ids = [(req or {}).get("a"), (req or {}).get("b")]
+    if not all(ids):
+        raise HTTPException(400, "a and b required")
+    db = SessionLocal()
+    try:
+        metrics = {}
+        titles = {}
+        for vid in ids:
+            v = db.get(Version, vid)
+            if v is None:
+                raise HTTPException(404, f"{vid} not found")
+            titles[vid] = f"v{v.v} {v.note or v.source}"
+            ep = Path(v.audio_path).parent / "eval.json" if v.audio_path else None
+            if not ep or not ep.exists():
+                raise HTTPException(409, f"{vid} 尚未评测,先跑 /api/evaluate")
+            metrics[vid] = _json.loads(ep.read_text(encoding="utf-8"))
+    finally:
+        db.close()
+    return duel(metrics[ids[0]], metrics[ids[1]], titles[ids[0]], titles[ids[1]])

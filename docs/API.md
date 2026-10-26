@@ -124,3 +124,35 @@
   "timing": {"e2e_seconds": 71.0}
 }
 ```
+
+
+---
+
+## 已实现对账(2026-10-27 清账)
+
+以下端点已在清账轮补齐,与上文设计一致或为等价实现:
+
+- `GET /api/versions/{id}`(含 abc_draft、has_transcription/stems/beats/analysis 标志)
+- `DELETE /api/versions/{id}`、`POST /api/versions/{id}/fork`
+- `PUT /api/versions/{id}/abc`(草稿落盘到版本目录 edits/draft.json)
+- `GET /api/versions/{id}/transcription`(abc+文件+摘要+节拍数)
+- `GET /api/versions/{id}/stems`、`POST /api/stems {version_id}` 已支持
+- `POST /api/lyrics {path|version_id, language?}`(独立歌词转写任务)
+- `POST /api/analyze {version_id|path}`(MERT 特征+结构+标签,版本落 analysis.json)
+- `POST /api/library/dedup?threshold=0.85`(成对相似报告)
+- `GET /api/agent/history?version_id=`、`POST /api/agent/apply`(采纳为草稿;编辑历史落盘 agent_history.json)
+- `POST /api/duel {a,b}`(同步,要求两版均已评测)
+- `GET /api/models`、`POST /api/models/{name}/load`(任务)/`unload`(同步);前端新增"系统"页
+- `DELETE /api/jobs/{id}`(仅限终态任务)
+
+## 变体实现(设计等价,非缺口)
+
+- `POST /api/generate/continue` → 由 `/api/generate/punch` 覆盖尾段 + apply 承担("尾段重唱")
+- `POST /api/cover/finalize` → 前端直接以 `cot="melody"` + abc 调 `/api/generate`
+- `GET /api/versions/{id}/candidates` → 挖补任务 result 内返回候选
+
+## 明确挂账
+
+- `POST /api/score/render`(服务端 PDF/钢琴音频渲染):SheetSage2 渲染栈基于 Playwright 无头浏览器,需为后端引入浏览器依赖;查看用客户端 abcjs 已覆盖,PDF 可用浏览器打印。待评估后单独排期。
+- Admin/鉴权体系(ADMIN_TOKEN、队列管理页、限流):单机自用暂缺,公网部署前必须补,连同 Docker 一起排期。
+- MERT 流派/情绪探针打标:现为启发式规则;真探针需下载 MagnaTagATune/EmoMusic 训练,单独排期。

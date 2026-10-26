@@ -140,6 +140,18 @@ class ModelManager:
                 self._agent_llm = (tok, model)
             return self._agent_llm
 
+    def unload(self, name: str) -> list[str]:
+        mapping = {
+            "yue2": "yue2", "sheetsage2": "sheetsage2", "mert": "mert",
+            "htdemucs": "htdemucs", "qwen3-asr": "asr", "asr": "asr",
+            "agent": "agent", "agent_llm": "agent", "vae": "vae",
+        }
+        key = mapping.get(name)
+        if key is None:
+            raise ValueError(f"unknown model: {name}")
+        self.free_gpu(key)
+        return [key]
+
     def status(self) -> dict:
         info: dict = {
             "yue2": {"loaded": self.loaded, "repo": settings.yue2_repo},

@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .core.config import settings
 from .core.db import init_db
-from .routers import agent, compose, cover, jobs, library, projects, system, tools, workspace
+from .routers import agent, compose, cover, jobs, library, projects, system, tools, versions, workspace
 from .services.queue import worker_loop
 
 
@@ -39,7 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router):
+for r in (system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router, versions.router):
     app.include_router(r)
 
 app.mount("/audio", StaticFiles(directory=settings.data_dir), name="audio")

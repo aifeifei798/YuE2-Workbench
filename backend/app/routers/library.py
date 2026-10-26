@@ -110,6 +110,35 @@ def make_playlist(req: PlaylistIn):
     return library_svc.playlist(req.item_id, n=req.n, diversity=req.diversity)
 
 
+@router.post("/dedup")
+def dedup(threshold: float = 0.85):
+    """Pairwise similarity report — flags likely covers/duplicates."""
+    import numpy as np
+
+    db = SessionLocal()
+    try:
+        items = db.query(LibraryItem).all()
+        vecs = []
+        for it in items:
+            v = library_svc._load_vector(it)
+            if v is not None:
+                vecs.append((it, v))
+        pairs = []
+        for i in range(len(vecs)):
+            for j in range(i + 1, len(vecs)):
+                sim = float(vecs[i][1] @ vecs[j][1])
+                if sim >= threshold:
+                    pairs.append({
+                        "a": library_svc._item_out(vecs[i][0]),
+                        "b": library_svc._item_out(vecs[j][0]),
+                        "similarity": round(sim, 4),
+                    })
+        pairs.sort(key=lambda x: -x["similarity"])
+        return {"threshold": threshold, "compared": len(vecs), "pairs": pairs}
+    finally:
+        db.close()
+
+
 @router.delete("/{item_id}", status_code=204)
 def delete_item(item_id: str):
     db = SessionLocal()

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, ListMusic, Sparkles, Trash2, Upload } from 'lucide-react'
+import { GitCompare, Loader2, ListMusic, Sparkles, Trash2, Upload } from 'lucide-react'
 import { api, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui'
+
+type DedupReport = { compared: number; pairs: { a: LibItem; b: LibItem; similarity: number }[] }
 
 type LibItem = {
   id: string
@@ -29,6 +31,7 @@ export function LibraryPage() {
   const [playlist, setPlaylist] = useState<LibItem[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [dedup, setDedup] = useState<DedupReport | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { events, done } = useJobStream(jobId)
 
@@ -106,6 +109,10 @@ export function LibraryPage() {
             导入时同时扒谱(调性/速度)
           </label>
           <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
+          <Button size="sm" variant="outline" title="成对相似度报告,高相似对即疑似翻唱/重复"
+            onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup)}>
+            <GitCompare size={13} /> 查重
+          </Button>
           <Button size="sm" disabled={busy === 'upload' || importing} onClick={() => fileRef.current?.click()}>
             {busy === 'upload' || importing ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />} 导入歌曲
           </Button>
@@ -161,6 +168,24 @@ export function LibraryPage() {
           </Card>
         ))}
       </div>
+
+      {dedup && (
+        <Card className="mt-5">
+          <CardHeader
+            title={`翻唱/重复检测(${dedup.compared} 首,阈值 0.85)`}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setDedup(null)}>收起</button>}
+          />
+          <CardBody className="space-y-1">
+            {dedup.pairs.length === 0 && <div className="text-xs text-zinc-500">没有发现高相似对</div>}
+            {dedup.pairs.map((p, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-800/60">
+                <span className="truncate text-zinc-200">{p.a.title} ↔ {p.b.title}</span>
+                <span className="font-mono text-xs text-amber-400">{(p.similarity * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
 
       {similarOf && (
         <Card className="mt-5">
