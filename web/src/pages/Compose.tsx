@@ -4,7 +4,8 @@ import { Loader2, Music4, Sparkles } from 'lucide-react'
 import { api, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { AudioPlayer } from '@/components/AudioPlayer'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Progress, Select, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Progress, Textarea } from '@/components/ui'
+import { SelectMenu } from '@/components/SelectMenu'
 
 const STAGE_LABEL: Record<string, string> = {
   load_model: '加载模型',
@@ -80,11 +81,15 @@ export function ComposePage() {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>规划模式</Label>
-              <Select value={cot} onChange={(e) => setCot(e.target.value as typeof cot)}>
-                <option value="full">full · 旋律+和弦</option>
-                <option value="melody">melody · 仅旋律</option>
-                <option value="off">off · 直接生成</option>
-              </Select>
+              <SelectMenu
+                value={cot}
+                onChange={(v) => setCot(v as typeof cot)}
+                options={[
+                  { value: 'full', label: 'full · 旋律+和弦' },
+                  { value: 'melody', label: 'melody · 仅旋律' },
+                  { value: 'off', label: 'off · 直接生成' },
+                ]}
+              />
             </div>
             <div>
               <Label>Seed</Label>

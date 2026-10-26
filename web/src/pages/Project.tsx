@@ -7,7 +7,8 @@ import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { WaveRegionsPlayer } from '@/components/WaveRegionsPlayer'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Select, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Textarea } from '@/components/ui'
+import { SelectMenu } from '@/components/SelectMenu'
 
 type PunchCandidate = { idx: number; seed: number; audition_url: string }
 type PunchResult = { punch_id: string; region: [number, number]; seconds: number; snapped?: boolean; candidates: PunchCandidate[] }
@@ -364,9 +365,12 @@ function Workspace({
               {auditioning ? <Loader2 className="animate-spin" size={13} /> : <Play size={13} />} 试听选区
             </Button>
             <span className="flex items-center gap-1">
-              <Select value={nCand} onChange={(e) => setNCand(Number(e.target.value))} className="h-8 w-16 text-xs">
-                {[2, 3, 4, 6].map((n) => <option key={n} value={n}>{n} 候选</option>)}
-              </Select>
+              <SelectMenu
+                className="w-24"
+                value={String(nCand)}
+                onChange={(v) => setNCand(Number(v))}
+                options={[2, 3, 4, 6].map((n) => ({ value: String(n), label: `${n} 候选` }))}
+              />
               <Button size="sm" disabled={!region || !!punchJob && !punchStream.done} onClick={() => startPunch(nCand)}>
                 <Scissors size={13} /> 挖补选区
               </Button>
@@ -444,12 +448,14 @@ function Workspace({
             <div className="grid gap-3 sm:grid-cols-2">
               {[['A', abA, setAbA] as const, ['B', abB, setAbB] as const].map(([label, val, set]) => (
                 <div key={label}>
-                  <Select value={val ?? ''} onChange={(e) => set(e.target.value || null)}>
-                    <option value="">选择版本 {label}</option>
-                    {project.versions.filter((v) => v.status === 'done' && v.urls).map((v) => (
-                      <option key={v.id} value={v.id}>v{v.v} · {v.note || v.source}</option>
-                    ))}
-                  </Select>
+                  <SelectMenu
+                    value={val ?? ''}
+                    onChange={(v) => set(v || null)}
+                    options={[
+                      { value: '', label: `选择版本 ${label}` },
+                      ...project.versions.filter((v) => v.status === 'done' && v.urls).map((v) => ({ value: v.id, label: `v${v.v} · ${v.note || v.source}` })),
+                    ]}
+                  />
                 </div>
               ))}
             </div>
