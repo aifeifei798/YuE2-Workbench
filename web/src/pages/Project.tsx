@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler, Trash2 } from 'lucide-react'
+import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Square, Repeat, PencilRuler, Trash2 } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
-import { WaveRegionsPlayer } from '@/components/WaveRegionsPlayer'
+import { WaveRegionsPlayer, type WaveRegionsHandle } from '@/components/WaveRegionsPlayer'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Textarea } from '@/components/ui'
 import { SelectMenu } from '@/components/SelectMenu'
 
@@ -48,8 +48,12 @@ export function ProjectPage() {
   const { id } = useParams()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [selected, setSelected] = useState<VersionOut | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
+  // set when the user deliberately deselects (delete); the 5s poll must not
+  // resurrect a selection until they pick a version again
+  const suppressAutoSelectRef = useRef(false)
 
   function startRename() {
     if (!project) return
@@ -72,14 +76,23 @@ export function ProjectPage() {
 
   const load = useCallback(() => {
     if (!id) return
-    api<ProjectDetail>(`/projects/${id}`).then((p) => {
-      setProject(p)
-      setSelected((cur) => {
-        if (cur) return p.versions.find((v) => v.id === cur.id) ?? null
-        return p.versions.find((v) => v.status === 'done') ?? null
+    api<ProjectDetail>(`/projects/${id}`)
+      .then((p) => {
+        setLoadError(null)
+        setProject(p)
+        setSelected((cur) => {
+          if (cur) return p.versions.find((v) => v.id === cur.id) ?? null
+          if (suppressAutoSelectRef.current) return null
+          return p.versions.find((v) => v.status === 'done') ?? null
+        })
       })
-    })
+      .catch((e) => setLoadError(String(e)))
   }, [id])
+
+  const selectVersion = useCallback((v: VersionOut | null) => {
+    suppressAutoSelectRef.current = v === null
+    setSelected(v)
+  }, [])
 
   useEffect(() => {
     load()
@@ -87,6 +100,7 @@ export function ProjectPage() {
     return () => clearInterval(t)
   }, [load])
 
+  if (loadError && !project) return <div className="p-8 text-sm text-red-400">加载失败:{loadError}</div>
   if (!project) return <div className="p-8 text-sm text-zinc-500">加载中…</div>
 
   return (
@@ -126,8 +140,8 @@ export function ProjectPage() {
         </div>
       </div>
       <div className="grid gap-5 lg:grid-cols-[240px_1fr]">
-        <VersionList project={project} selected={selected} onSelect={setSelected} />
-        <Workspace project={project} version={selected} onRefresh={load} onSelect={setSelected} />
+        <VersionList project={project} selected={selected} onSelect={selectVersion} />
+        <Workspace project={project} version={selected} onRefresh={load} onSelect={selectVersion} />
       </div>
     </div>
   )
@@ -179,11 +193,12 @@ function Workspace({
   project: ProjectDetail
   version: VersionOut | null
   onRefresh: () => void
-  onSelect: (v: VersionOut) => void
+  onSelect: (v: VersionOut | null) => void
 }) {
   const [region, setRegion] = useState<[number, number] | null>(null)
   const [duration, setDuration] = useState(0)
   const [auditioning, setAuditioning] = useState(false)
+  const [loopRegion, setLoopRegion] = useState(false)
   const [nCand, setNCand] = useState(3)
   const [punchJob, setPunchJob] = useState<string | null>(null)
   const [applyJob, setApplyJob] = useState<string | null>(null)
@@ -194,6 +209,9 @@ function Workspace({
   const [abA, setAbA] = useState<string | null>(null)
   const [abB, setAbB] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const waveRef = useRef<WaveRegionsHandle | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const auditionTokenRef = useRef(0)
 
   const punchStream = useJobStream(punchJob)
   const applyStream = useJobStream(applyJob)
@@ -221,62 +239,53 @@ function Workspace({
   const [savedDraft, setSavedDraft] = useState(false)
   const stemJobRef = useRef(false)
 
-  const punchResult = useMemo(
-    () => (punchStream.job?.result ?? punchStream.events.find((e) => e.result)?.result) as PunchResult | undefined,
-    [punchStream],
-  )
-  const rerenderResult = useMemo(
-    () => (rerenderStream.job?.result ?? rerenderStream.events.find((e) => e.result)?.result) as GenResult | undefined,
-    [rerenderStream],
-  )
-  const agentResult = useMemo(
-    () => (agentStream.job?.result ?? agentStream.events.find((e) => e.result)?.result) as AgentEditResult | undefined,
-    [agentStream],
-  )
-  const duelResult = useMemo(
-    () => (duelStream.job?.result ?? duelStream.events.find((e) => e.result)?.result) as EvalResult | undefined,
-    [duelStream],
-  )
-  const applyResult = useMemo(
-    () => (applyStream.job?.result ?? applyStream.events.find((e) => e.result)?.result) as GenResult | undefined,
-    [applyStream],
-  )
+  const punchResult = punchStream.result as PunchResult | undefined
+  const rerenderResult = rerenderStream.result as GenResult | undefined
+  const agentResult = agentStream.result as AgentEditResult | undefined
+  const duelResult = duelStream.result as EvalResult | undefined
+  const applyResult = applyStream.result as GenResult | undefined
+
+  // version id we are waiting to appear and finish rendering, then auto-select
+  const [pendingSelect, setPendingSelect] = useState<string | null>(null)
 
   useEffect(() => {
     if (applyStream.done && applyResult) {
-      onRefresh()
-      const t = setInterval(() => {
-        api<ProjectDetail>(`/projects/${project.id}`).then((p) => {
-          const v = p.versions.find((x) => x.id === applyResult.version_id)
-          if (v && v.status === 'done') {
-            onSelect(v)
-            clearInterval(t)
-          }
-        })
-      }, 1500)
+      setPendingSelect(applyResult.version_id)
       setApplyJob(null)
-      return () => clearInterval(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyStream.done])
 
   useEffect(() => {
     if (rerenderStream.done && rerenderResult) {
-      onRefresh()
-      const t = setInterval(() => {
-        api<ProjectDetail>(`/projects/${project.id}`).then((p) => {
-          const v = p.versions.find((x) => x.id === rerenderResult.version_id)
-          if (v && v.status === 'done') {
-            onSelect(v)
-            clearInterval(t)
-          }
-        })
-      }, 1500)
+      setPendingSelect(rerenderResult.version_id)
       setRerenderJob(null)
-      return () => clearInterval(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rerenderStream.done])
+
+  useEffect(() => {
+    if (!pendingSelect) return
+    onRefresh()
+    let alive = true
+    const t = setInterval(() => {
+      api<ProjectDetail>(`/projects/${project.id}`)
+        .then((p) => {
+          if (!alive) return
+          const v = p.versions.find((x) => x.id === pendingSelect)
+          if (v && (v.status === 'done' || v.status === 'failed' || v.status === 'cancelled')) {
+            setPendingSelect(null)
+            if (v.status === 'done') onSelect(v)
+          }
+        })
+        .catch(() => {})
+    }, 1500)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSelect])
 
   useEffect(() => {
     if (stemStream.done && stemStream.job?.result && version) {
@@ -314,14 +323,96 @@ function Workspace({
 
   useEffect(() => {
     setRegion(null)
-    setPunchResult0()
     setShowAbc(false)
     setShowRelLyrics(false)
     setAbcDraft(version?.abc ?? '')
+    // drop per-version job state so nothing leaks across versions
+    setPunchJob(null)
+    setApplyJob(null)
+    setRerenderJob(null)
+    setAgentJob(null)
+    setDuelJob(null)
+    setLibJob(null)
+    setStemJob(null)
+    setTransJob(null)
+    setStems(null)
+    setShowStems(false)
+    setTrans(null)
+    setShowTrans(false)
+    setSavedDraft(false)
+    stemJobRef.current = false
+    stopAudition()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version?.id])
 
-  function setPunchResult0() { /* placeholder to keep hook simple */ }
+  // stop any audition playback when leaving the page
+  useEffect(
+    () => () => {
+      stopAudition()
+      audioRef.current = null
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  function stopAudition() {
+    auditionTokenRef.current++
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    audioRef.current?.pause()
+    setAuditioning(false)
+  }
+
+  async function audition() {
+    if (!region || !version) return
+    // button doubles as stop while a preview is playing
+    if (auditioning) {
+      stopAudition()
+      return
+    }
+    setAuditioning(true)
+    const token = ++auditionTokenRef.current
+    waveRef.current?.pause()
+    try {
+      const res = await api<{ url: string }>(`/audition`, {
+        method: 'POST',
+        body: JSON.stringify({ version_id: version.id, region }),
+      })
+      if (token !== auditionTokenRef.current) return // stopped while decoding
+      if (!audioRef.current) audioRef.current = new Audio()
+      const audio = audioRef.current
+      audio.onended = () => {
+        if (auditionTokenRef.current === token) setAuditioning(false)
+      }
+      audio.loop = loopRegion // loop mode: 'ended' never fires, button stops it
+      audio.src = res.url
+      await audio.play()
+      if (token !== auditionTokenRef.current) {
+        audio.pause()
+        return
+      }
+      // the slice audio starts at region[0]: drive the waveform cursor from it
+      const t0 = region[0]
+      waveRef.current?.setTime(t0)
+      const tick = () => {
+        if (auditionTokenRef.current !== token) return
+        if (!audio.paused && !audio.ended) {
+          waveRef.current?.setTime(t0 + audio.currentTime)
+          rafRef.current = requestAnimationFrame(tick)
+        } else {
+          rafRef.current = null
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    } catch (e) {
+      if (token === auditionTokenRef.current) {
+        setAuditioning(false)
+        alert(String(e))
+      }
+    }
+  }
 
   if (!version || version.status !== 'done' || !version.urls) {
     return (
@@ -334,24 +425,6 @@ function Workspace({
   }
 
   const cfg = (version.config ?? {}) as Record<string, unknown>
-
-  async function audition() {
-    if (!region || !version) return
-    setAuditioning(true)
-    try {
-      const res = await api<{ url: string }>(`/audition`, {
-        method: 'POST',
-        body: JSON.stringify({ version_id: version.id, region }),
-      })
-      if (!audioRef.current) audioRef.current = new Audio()
-      audioRef.current.src = res.url
-      await audioRef.current.play()
-    } catch (e) {
-      alert(String(e))
-    } finally {
-      setAuditioning(false)
-    }
-  }
 
   function startPunch(n: number) {
     if (!region || !version) return
@@ -441,12 +514,10 @@ function Workspace({
       method: 'POST',
       body: JSON.stringify({ note: `自 v${version.v} 复制` }),
     })
-      .then(() => {
+      .then((r) => {
+        // wait for this exact version instead of guessing by source
+        setPendingSelect(r.version_id)
         onRefresh()
-        setTimeout(() => api<ProjectDetail>(`/projects/${project.id}`).then((p) => {
-          const nv = p.versions.find((x) => x.source === 'fork')
-          if (nv) onSelect(nv)
-        }), 800)
       })
       .catch((e) => alert(String(e)))
   }
@@ -456,7 +527,7 @@ function Workspace({
     if (!window.confirm(`删除 v${version.v}?音频与全部工件将一并删除,不可恢复。`)) return
     api(`/versions/${version.id}`, { method: 'DELETE' })
       .then(() => {
-        onSelect(null as unknown as VersionOut)
+        onSelect(null)
         onRefresh()
       })
       .catch((e) => alert(String(e)))
@@ -548,7 +619,16 @@ function Workspace({
           }
         />
         <CardBody className="space-y-3">
-          <WaveRegionsPlayer url={version.urls.audio} onRegionChange={setRegion} onDuration={setDuration} />
+          <WaveRegionsPlayer
+            ref={waveRef}
+            url={version.urls.audio}
+            onRegionChange={(r) => {
+              stopAudition()
+              setRegion(r)
+            }}
+            onPlay={stopAudition}
+            onDuration={setDuration}
+          />
           <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
             {region ? (
               <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-emerald-400">
@@ -558,8 +638,23 @@ function Workspace({
               <span>在波形上拖选一段(≥1s)</span>
             )}
             <span className="flex-1" />
-            <Button size="sm" variant="outline" disabled={!region || auditioning} onClick={audition}>
-              {auditioning ? <Loader2 className="animate-spin" size={13} /> : <Play size={13} />} 试听选区
+            <Button size="sm" variant="outline" disabled={!region} onClick={audition}>
+              {auditioning ? <Square size={13} /> : <Play size={13} />} {auditioning ? '停止试听' : '试听选区'}
+            </Button>
+            <Button
+              size="sm"
+              variant={loopRegion ? 'default' : 'outline'}
+              className={loopRegion ? undefined : 'text-zinc-400'}
+              title="开启后,试听选区到结尾自动从头循环;关闭则到结尾停止"
+              onClick={() =>
+                setLoopRegion((v) => {
+                  const next = !v
+                  if (audioRef.current) audioRef.current.loop = next
+                  return next
+                })
+              }
+            >
+              <Repeat size={13} /> 循环选区
             </Button>
             <span className="flex items-center gap-1">
               <SelectMenu

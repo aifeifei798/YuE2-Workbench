@@ -52,7 +52,7 @@ export function LeaderboardPage() {
           <Button
             size="sm"
             disabled={pending === 0 || (!!jobId && !done)}
-            onClick={() => api<{ job_id: string }>('/evaluate/batch?limit=8', { method: 'POST' }).then((r) => setJobId(r.job_id))}
+            onClick={() => api<{ job_id: string }>('/evaluate/batch?limit=8', { method: 'POST' }).then((r) => setJobId(r.job_id)).catch((e) => alert(String(e)))}
           >
             {jobId && !done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />}
             评测缺失版本{pending > 0 ? `(${pending})` : ''}

@@ -102,12 +102,18 @@ def get_item(item_id: str):
 
 @router.get("/{item_id}/similar")
 def similar_items(item_id: str, k: int = 8):
-    return library_svc.similar(item_id, k=k)
+    try:
+        return library_svc.similar(item_id, k=k)
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
 
 
 @router.post("/playlist")
 def make_playlist(req: PlaylistIn):
-    return library_svc.playlist(req.item_id, n=req.n, diversity=req.diversity)
+    try:
+        return library_svc.playlist(req.item_id, n=req.n, diversity=req.diversity)
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
 
 
 @router.post("/dedup")

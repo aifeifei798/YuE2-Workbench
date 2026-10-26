@@ -50,6 +50,8 @@ def analyze_file(src: str, emit=None) -> dict:
 
     clip_vec = np.mean(clip_parts, axis=0)
     clip_vec /= np.linalg.norm(clip_vec) + 1e-9
+    if not frame_parts:
+        raise ValueError("audio too short for MERT analysis (need at least ~0.5s)")
     frames_all = np.concatenate(frame_parts, axis=0)
     return {
         "embedding": clip_vec,

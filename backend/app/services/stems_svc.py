@@ -9,6 +9,7 @@ import numpy as np
 import soundfile as sf
 import torch
 
+from ..core.config import settings
 from .models_mgr import models
 
 
@@ -44,7 +45,11 @@ def separate_file(src: str, out_dir: Path, emit=None) -> dict:
         out = out_dir / f"{name}.flac"
         audio = sources[i].cpu().numpy().T
         sf.write(out, audio, samplerate, subtype="PCM_16")
-        urls[name] = f"/audio/stems/{out_dir.name}/{name}.flac"
+        try:
+            urls[name] = "/audio/" + str(out.relative_to(settings.data_dir))
+        except ValueError:
+            # out_dir outside the data dir: no static URL available
+            pass
         paths[name] = str(out)
         emit(stage="separate", detail=f"saved {name}")
     return {"stems": urls, "paths": paths, "samplerate": samplerate}

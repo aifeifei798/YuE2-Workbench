@@ -140,6 +140,8 @@ def agent_apply(req: dict):
         version = db.get(Version, version_id)
         if version is None:
             raise HTTPException(404)
+        if not version.audio_path:
+            raise HTTPException(400, "version has no rendered audio")
         draft = save_draft(version, abc, str((req or {}).get("note") or "agent 提案"))
         return {"saved": True, "updated_at": draft["updated_at"]}
     finally:

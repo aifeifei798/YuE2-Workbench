@@ -77,6 +77,8 @@ export function LibraryPage() {
       const rows = await api<LibItem[]>(`/library/${item.id}/similar?k=8`)
       setSimilarOf({ item, rows })
       setPlaylist(null)
+    } catch (e) {
+      alert(String(e))
     } finally {
       setBusy(null)
     }
@@ -91,6 +93,8 @@ export function LibraryPage() {
       })
       setPlaylist(rows)
       setSimilarOf(null)
+    } catch (e) {
+      alert(String(e))
     } finally {
       setBusy(null)
     }
@@ -110,7 +114,7 @@ export function LibraryPage() {
           </label>
           <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
           <Button size="sm" variant="outline" title="成对相似度报告,高相似对即疑似翻唱/重复"
-            onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup)}>
+            onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup).catch((e) => alert(String(e)))}>
             <GitCompare size={13} /> 查重
           </Button>
           <Button size="sm" disabled={busy === 'upload' || importing} onClick={() => fileRef.current?.click()}>
@@ -160,7 +164,7 @@ export function LibraryPage() {
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="ghost" size="sm" title="找相似" className="h-8 w-8 p-0" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}><Sparkles size={15} /></Button>
                   <Button variant="ghost" size="sm" title="生成歌单" className="h-8 w-8 p-0" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={15} /></Button>
-                  <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh)}><Trash2 size={15} /></Button>
+                  <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh).catch((e) => alert(String(e)))}><Trash2 size={15} /></Button>
                 </div>
               </div>
               <div className="mt-2"><AudioPlayer url={it.audio_url} height={44} /></div>

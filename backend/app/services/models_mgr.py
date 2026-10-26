@@ -141,6 +141,7 @@ class ModelManager:
             return self._agent_llm
 
     def unload(self, name: str) -> list[str]:
+        """Release exactly the named model; returns the keys actually released."""
         mapping = {
             "yue2": "yue2", "sheetsage2": "sheetsage2", "mert": "mert",
             "htdemucs": "htdemucs", "qwen3-asr": "asr", "asr": "asr",
@@ -149,8 +150,40 @@ class ModelManager:
         key = mapping.get(name)
         if key is None:
             raise ValueError(f"unknown model: {name}")
-        self.free_gpu(key)
-        return [key]
+        return self._release(key)
+
+    def _release(self, key: str) -> list[str]:
+        import torch
+
+        released = []
+        with self._lock:
+            if key == "yue2" and self._pipe is not None:
+                self._pipe.close()
+                self._pipe = None
+                released.append("yue2")
+            if key == "sheetsage2" and self._sheetsage is not None:
+                self._sheetsage = None
+                released.append("sheetsage2")
+            if key == "mert" and self._mert is not None:
+                self._mert = None
+                released.append("mert")
+            if key == "htdemucs" and self._demucs is not None:
+                self._demucs = None
+                released.append("htdemucs")
+            if key == "asr" and self._asr is not None:
+                self._asr = None
+                released.append("qwen3-asr")
+            if key == "vae" and self._vae is not None:
+                self._vae = None
+                released.append("vae")
+            if key == "agent" and self._agent_llm is not None:
+                self._agent_llm = None
+                released.append("agent-llm")
+            if released and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        if released:
+            print("[models] released:", ", ".join(released), flush=True)
+        return released
 
     def status(self) -> dict:
         info: dict = {
@@ -175,39 +208,5 @@ class ModelManager:
         except Exception:
             pass
         return info
-
-    def free_gpu(self, *keep) -> None:
-        """Release models not listed in keep (names: yue2, sheetsage2, mert, htdemucs)."""
-        import torch
-
-        with self._lock:
-            released = []
-            if "yue2" not in keep and self._pipe is not None:
-                self._pipe.close()
-                self._pipe = None
-                released.append("yue2")
-            if "sheetsage2" not in keep and self._sheetsage is not None:
-                self._sheetsage = None
-                released.append("sheetsage2")
-            if "mert" not in keep and self._mert is not None:
-                self._mert = None
-                released.append("mert")
-            if "htdemucs" not in keep and self._demucs is not None:
-                self._demucs = None
-                released.append("htdemucs")
-            if "asr" not in keep and self._asr is not None:
-                self._asr = None
-                released.append("qwen3-asr")
-            if "vae" not in keep and self._vae is not None:
-                self._vae = None
-                released.append("vae")
-            if "agent" not in keep and self._agent_llm is not None:
-                self._agent_llm = None
-                released.append("agent-llm")
-            if released and torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        if released:
-            print("[models] released:", ", ".join(released), flush=True)
-
 
 models = ModelManager()

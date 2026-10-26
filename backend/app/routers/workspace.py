@@ -61,11 +61,19 @@ def audition(req: AuditionIn):
     b = min(T, max(a + 1, int(req.region[1] * punch_svc.FPS)))
     if b - a < 2:
         raise HTTPException(400, "region too short")
+    left = a - max(0, a - punch_svc.HALO)  # halo frames actually prepended
     z = latents[max(0, a - punch_svc.HALO): min(T, b + punch_svc.HALO)]
     wav = punch_svc.decode_latents(z)
+    # trim the halo so the clip covers exactly the region: the frontend maps
+    # audio time 0 to region start and stops at region end
+    spf = 48000 // punch_svc.FPS  # samples per latent frame at 48 kHz
+    lo = left * spf
+    hi = lo + (b - a) * spf
+    if lo < len(wav):
+        wav = wav[lo: min(hi, len(wav))]
     cache_dir = settings.data_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    name = f"aud_{version.id}_{a}_{b}.wav"
+    name = f"aud_{version.id}_{a}_{b}_trim.wav"
     out = cache_dir / name
     if not out.exists():
         sf.write(out, wav, 48000, subtype="PCM_16")

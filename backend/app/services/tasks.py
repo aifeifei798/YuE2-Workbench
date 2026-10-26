@@ -1,9 +1,12 @@
 """Job task implementations. Signature: (params, emit, cancelled) -> result dict."""
 
+import hashlib
 import json
 import shutil
 import random
+import threading
 import time
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
@@ -13,6 +16,38 @@ from ..core.config import settings
 from ..core.db import SessionLocal
 from ..models.tables import Project, Version, uid
 from .models_mgr import models
+
+# Serializes version-number allocation (max(v)+1 + mkdir + row commit) across
+# the job worker thread and request threads (fork), so two writers can never
+# share one vNN directory.
+VLOCK = threading.Lock()
+
+
+def _alloc_version_dir(db, project_id: str) -> tuple[int, Path]:
+    """Allocate the next free vNN directory for a project.
+
+    Caller must hold VLOCK. Skips dirs left behind by crashed runs instead of
+    silently sharing them.
+    """
+    vnum = (
+        db.query(func.max(Version.v)).filter(Version.project_id == project_id).scalar() or 0
+    ) + 1
+    while True:
+        vdir = settings.data_dir / "projects" / project_id / f"v{vnum:02d}"
+        try:
+            vdir.mkdir(parents=True, exist_ok=False)
+            return vnum, vdir
+        except FileExistsError:
+            vnum += 1
+
+
+def _src_cache_key(src: str) -> str:
+    """Stable cache key for a source file: survives restarts (unlike hash()),
+    changes when the file content changes."""
+    p = Path(src).resolve()
+    st = p.stat()
+    h = hashlib.sha1(f"{p}|{st.st_mtime_ns}|{st.st_size}".encode()).hexdigest()[:10]
+    return f"{p.stem[:24]}_{h}"
 
 
 def _token_callback(emit, stage: str):
@@ -47,23 +82,20 @@ def run_generate(params: dict, emit, cancelled) -> dict:
         project = db.get(Project, params["project_id"])
         if project is None:
             raise ValueError(f"project {params.get('project_id')} not found")
-        vnum = (
-            db.query(func.max(Version.v)).filter(Version.project_id == project.id).scalar() or 0
-        ) + 1
+        with VLOCK:
+            vnum, vdir = _alloc_version_dir(db, project.id)
+            version = Version(
+                id=uid("v"),
+                project_id=project.id,
+                v=vnum,
+                source=params.get("source", "generated"),
+                parent_version_id=params.get("parent_version_id"),
+                note=params.get("note", ""),
+                status="running",
+            )
+            db.add(version)
+            db.commit()
         dirname = f"v{vnum:02d}"
-        vdir = settings.data_dir / "projects" / project.id / dirname
-        vdir.mkdir(parents=True, exist_ok=True)
-        version = Version(
-            id=uid("v"),
-            project_id=project.id,
-            v=vnum,
-            source=params.get("source", "generated"),
-            parent_version_id=params.get("parent_version_id"),
-            note=params.get("note", ""),
-            status="running",
-        )
-        db.add(version)
-        db.commit()
 
         emit(stage="load_model", detail="loading YuE2 pipeline (first run takes a while)")
         pipe = models.pipeline()
@@ -171,9 +203,6 @@ def run_plan(params: dict, emit, cancelled) -> dict:
 
 
 def run_transcribe(params: dict, emit, cancelled) -> dict:
-    from pathlib import Path
-
-    from ..core.db import SessionLocal
     from ..models.tables import Version
     from .transcribe_svc import transcribe_file, transcribe_version
 
@@ -191,16 +220,12 @@ def run_transcribe(params: dict, emit, cancelled) -> dict:
         src = params.get("path")
         if not src or not Path(src).exists():
             raise ValueError("provide path or version_id")
-        uid_dir = f"t_{src.split('/')[-1].rsplit('.', 1)[0][:24]}_{abs(hash(src)) % 100000}"
-        out_dir = settings.data_dir / "transcriptions" / uid_dir
+        out_dir = settings.data_dir / "transcriptions" / f"t_{_src_cache_key(src)}"
         result = transcribe_file(src, out_dir, melody_only=melody_only, emit=emit)
     return result
 
 
 def run_stems(params: dict, emit, cancelled) -> dict:
-    from pathlib import Path
-
-    from ..core.db import SessionLocal
     from ..models.tables import Version
     from .stems_svc import separate_file
 
@@ -220,7 +245,7 @@ def run_stems(params: dict, emit, cancelled) -> dict:
         src = params.get("path")
         if not src or not Path(src).exists():
             raise ValueError("provide path or version_id")
-        out_dir = settings.data_dir / "stems" / f"s_{abs(hash(src)) % 10_000_000:07d}"
+        out_dir = settings.data_dir / "stems" / f"s_{_src_cache_key(src)}"
     return separate_file(src, out_dir, emit=emit)
 
 
@@ -270,39 +295,35 @@ def run_punch(params: dict, emit, cancelled) -> dict:
 def run_punch_apply(params: dict, emit, cancelled) -> dict:
     import numpy as np
     import soundfile as sf
-    from pathlib import Path
 
-    from ..core.db import SessionLocal
-    from ..models.tables import Version, uid
     from .punch_svc import apply_candidate
 
     db = SessionLocal()
     version = None
+    new_version = None
+    vdir = None
     try:
         version = db.get(Version, params["version_id"])
         if version is None:
             raise ValueError("version not found")
         result = apply_candidate(version, params["punch_id"], int(params["idx"]), emit=emit)
 
-        vnum = (
-            db.query(func.max(Version.v)).filter(Version.project_id == version.project_id).scalar() or 0
-        ) + 1
-        vdir = settings.data_dir / "projects" / version.project_id / f"v{vnum:02d}"
-        vdir.mkdir(parents=True, exist_ok=True)
-        a, b = result["a"], result["b"]
-        note = params.get("note") or f"挖补 {a / 25:.1f}-{b / 25:.1f}s #{result['idx'] + 1}"
-        new_version = Version(
-            id=uid("v"),
-            project_id=version.project_id,
-            v=vnum,
-            source="punch",
-            parent_version_id=version.id,
-            note=note,
-            status="running",
-            abc=version.abc,
-        )
-        db.add(new_version)
-        db.commit()
+        with VLOCK:
+            vnum, vdir = _alloc_version_dir(db, version.project_id)
+            a, b = result["a"], result["b"]
+            note = params.get("note") or f"挖补 {a / 25:.1f}-{b / 25:.1f}s #{result['idx'] + 1}"
+            new_version = Version(
+                id=uid("v"),
+                project_id=version.project_id,
+                v=vnum,
+                source="punch",
+                parent_version_id=version.id,
+                note=note,
+                status="running",
+                abc=version.abc,
+            )
+            db.add(new_version)
+            db.commit()
 
         sf.write(vdir / "song.flac", result["audio"], 48000, subtype="PCM_24")
         np.save(vdir / "latents.npy", result["latents"])
@@ -325,8 +346,20 @@ def run_punch_apply(params: dict, emit, cancelled) -> dict:
             "urls": {"audio": f"/audio/projects/{new_version.project_id}/v{vnum:02d}/song.flac"},
         }
     except Exception:
-        if version is not None:
-            pass
+        if new_version is not None:
+            # the row was already committed as "running": mark it failed and
+            # remove the partial artifact dir so no phantom version remains
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            new_version.status = "failed"
+            try:
+                db.commit()
+            except Exception:
+                pass
+            if vdir is not None:
+                shutil.rmtree(vdir, ignore_errors=True)
         raise
     finally:
         db.close()
@@ -348,7 +381,6 @@ def run_agent_edit(params: dict, emit, cancelled) -> dict:
 
 
 def run_evaluate(params: dict, emit, cancelled) -> dict:
-    from ..core.db import SessionLocal
     from ..models.tables import Version
     from .eval_svc import duel, evaluate_version
 
@@ -363,8 +395,9 @@ def run_evaluate(params: dict, emit, cancelled) -> dict:
             emit(stage="evaluate", detail=f"version {version.v}")
             evals[vid] = evaluate_version(version, emit)
         duel_out = None
-        if len(evals) == 2 and params.get("labels"):
-            labels = params["labels"]
+        labels = params.get("labels") or []
+        # labels[i] corresponds to version_ids[i]; duel the first two only if both evaluated
+        if len(ids) >= 2 and len(labels) >= 2 and ids[0] in evals and ids[1] in evals:
             duel_out = duel(evals[ids[0]], evals[ids[1]], labels[0], labels[1])
         return {"evals": evals, "duel": duel_out}
     finally:

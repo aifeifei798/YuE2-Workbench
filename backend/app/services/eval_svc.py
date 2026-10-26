@@ -107,8 +107,7 @@ def evaluate_version(version, emit) -> dict:
 def duel(metrics_a: dict, metrics_b: dict, label_a: str, label_b: str) -> dict:
     """Rule-based suggestion + metric deltas. Human listens and decides."""
 
-    def better(key, higher=True):
-        va, vb = metrics_a.get(key), metrics_b.get(key)
+    def _win(va, vb, higher=True):
         if va is None or vb is None:
             return None
         if va == vb:
@@ -117,12 +116,16 @@ def duel(metrics_a: dict, metrics_b: dict, label_a: str, label_b: str) -> dict:
             return label_a if va > vb else label_b
         return label_a if va < vb else label_b
 
+    def better(key, higher=True):
+        return _win(metrics_a.get(key), metrics_b.get(key), higher)
+
+    a_audio, b_audio = metrics_a.get("audio") or {}, metrics_b.get("audio") or {}
     rows = [
         {"metric": "歌词清晰度 intelligibility", "a": metrics_a.get("intelligibility"), "b": metrics_b.get("intelligibility"), "winner": better("intelligibility")},
         {"metric": "结构连贯性 coherence", "a": metrics_a.get("coherence"), "b": metrics_b.get("coherence"), "winner": better("coherence")},
         {"metric": "VAE 重构 SNR (dB)", "a": metrics_a.get("vae_recon_snr_db"), "b": metrics_b.get("vae_recon_snr_db"), "winner": better("vae_recon_snr_db")},
-        {"metric": "削波率 clip_ratio", "a": metrics_a.get("audio", {}).get("clip_ratio"), "b": metrics_b.get("audio", {}).get("clip_ratio"), "winner": better("audio.clip_ratio", higher=False)},
-        {"metric": "峰值因数 crest (dB)", "a": metrics_a.get("audio", {}).get("crest_db"), "b": metrics_b.get("audio", {}).get("crest_db"), "winner": None},
+        {"metric": "削波率 clip_ratio", "a": a_audio.get("clip_ratio"), "b": b_audio.get("clip_ratio"), "winner": _win(a_audio.get("clip_ratio"), b_audio.get("clip_ratio"), higher=False)},
+        {"metric": "峰值因数 crest (dB)", "a": a_audio.get("crest_db"), "b": b_audio.get("crest_db"), "winner": None},
     ]
     wins = [r["winner"] for r in rows if r["winner"] in (label_a, label_b)]
     suggestion = "tie"

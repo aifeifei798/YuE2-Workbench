@@ -36,7 +36,7 @@ def list_models():
 
 
 @router.post("/models/{name}/load", status_code=202)
-def load_model(name: str):
+async def load_model(name: str):
     if name not in {m["name"] for m in MODEL_INFO}:
         raise HTTPException(404, f"unknown model: {name}")
     job = queue.submit("model_load", {"name": name})

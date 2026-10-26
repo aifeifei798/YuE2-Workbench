@@ -1,3 +1,4 @@
+import shutil
 import time
 
 from typing import Literal
@@ -6,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
+from ..core.config import settings
 from ..core.db import SessionLocal
 from ..models.tables import Job, Project, Version, uid
 
@@ -145,11 +147,27 @@ def delete_project(project_id: str):
         p = db.get(Project, project_id)
         if p is None:
             raise HTTPException(404)
+        active = (
+            db.query(Job)
+            .filter(Job.project_id == project_id, Job.status.in_(("queued", "running")))
+            .count()
+        )
+        if active:
+            raise HTTPException(409, "project has active jobs, cancel them first")
         db.query(Version).filter(Version.project_id == project_id).delete()
+        jobs = db.query(Job).filter(Job.project_id == project_id).all()
+        for j in jobs:
+            db.delete(j)
         db.delete(p)
         db.commit()
+        job_ids = [j.id for j in jobs]
     finally:
         db.close()
+    from ..services import queue
+
+    for jid in job_ids:
+        queue.runtimes.pop(jid, None)
+    shutil.rmtree(settings.data_dir / "projects" / project_id, ignore_errors=True)
 
 
 def _version_out(v: Version) -> dict:

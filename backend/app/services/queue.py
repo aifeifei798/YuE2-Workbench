@@ -61,6 +61,31 @@ def queue_depth() -> int:
     return len(_pending) + (1 if _running else 0)
 
 
+def recover_stale_jobs() -> int:
+    """Mark jobs left queued/running by a previous process as failed.
+
+    In-memory _pending/runtimes are gone after a restart, so those rows would
+    otherwise stay non-terminal forever (uncancellable and undeletable).
+    Call once at startup, before the worker starts.
+    """
+    db = SessionLocal()
+    n = 0
+    try:
+        rows = db.query(Job).filter(Job.status.in_(("queued", "running"))).all()
+        for job in rows:
+            job.status = "failed"
+            job.error = "interrupted by server restart"
+            job.finished_at = time.time()
+            n += 1
+        if n:
+            db.commit()
+    finally:
+        db.close()
+    if n:
+        print(f"[queue] marked {n} stale job(s) as failed after restart", flush=True)
+    return n
+
+
 def cancel(job_id: str) -> bool:
     rt = runtimes.get(job_id)
     if rt is None:

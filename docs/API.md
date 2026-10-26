@@ -10,7 +10,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/jobs?status=&type=&project_id=` | 任务列表 |
+| GET | `/api/jobs?limit=` | 任务列表(默认 50 条,暂无 status/type/project_id 过滤) |
 | GET | `/api/jobs/{id}` | 任务详情(含 result) |
 | GET | `/api/jobs/{id}/events` | SSE 进度流 |
 | POST | `/api/jobs/{id}/cancel` | 取消(映射 pipeline `cancelled`) |
@@ -37,7 +37,7 @@
 | POST | `/api/plan` | 只出 ABC 计划谱,不渲染音频(快速预览)。`{style, lyrics, seed, cot}` → `{abc, timing}` |
 | POST | `/api/generate/continue` | 续写:从某版本第 N 小节起新演绎。`{version_id, from_bar, style?, edited_abc?}` |
 | POST | `/api/generate/punch` | 区域挖补:`{version_id, region:[t0,t1], candidates: 3~8, seeds?, edited_abc?}` → 生成候选段,人选后拼回 |
-| POST | `/api/punch/apply` | `{version_id, candidate_id, crossfade: "latent"\|"audio"}` → 新 Version |
+| POST | `/api/punch/apply` | `{version_id, punch_id, idx, note?}` → 新 Version(punch_id 来自挖补任务 result) |
 | POST | `/api/audition` | **同步**,区域试听:`{version_id, region:[t0,t1], seed?}` → `{audio_url}`(<1s,隐变量切片解码;seed 给定时返回该 seed 的候选段试听) |
 | GET | `/api/versions/{id}/candidates` | 挖补候选列表(试听/采用) |
 
@@ -72,7 +72,7 @@
 | POST | `/api/analyze` | 对版本/文件单独分析:`{file?|version_id?}` → `{tags:{genre,mood,key,tempo,energy}, segments, embedding_url}` |
 | GET | `/api/library?tag=&q=&sort=` | 库列表/筛选 |
 | GET | `/api/library/{id}/similar?k=` | 相似曲(MERT 向量余弦) |
-| POST | `/api/library/playlist` | `{seed_item_id, n, diversity?}` → 歌单 |
+| POST | `/api/library/playlist` | `{item_id, n, diversity?}` → 歌单 |
 | POST | `/api/library/dedup` | 翻唱/重复检测(成对相似度报告) |
 
 ## 8. Agent 编辑
@@ -132,13 +132,14 @@
 
 以下端点已在清账轮补齐,与上文设计一致或为等价实现:
 
+- `POST /api/upload`(multipart 上传音频,返回 `path`/`url`,供 lyrics/analyze/transcribe 等使用)
 - `GET /api/versions/{id}`(含 abc_draft、has_transcription/stems/beats/analysis 标志)
 - `DELETE /api/versions/{id}`、`POST /api/versions/{id}/fork`
 - `PUT /api/versions/{id}/abc`(草稿落盘到版本目录 edits/draft.json)
 - `GET /api/versions/{id}/transcription`(abc+文件+摘要+节拍数)
 - `GET /api/versions/{id}/stems`、`POST /api/stems {version_id}` 已支持
-- `POST /api/lyrics {path|version_id, language?}`(独立歌词转写任务)
-- `POST /api/analyze {version_id|path}`(MERT 特征+结构+标签,版本落 analysis.json)
+- `POST /api/lyrics {path|version_id, language?}`(独立歌词转写任务,`202 {job_id}`)
+- `POST /api/analyze {version_id|path}`(MERT 特征+结构+标签,版本落 analysis.json,`202 {job_id}`)
 - `POST /api/library/dedup?threshold=0.85`(成对相似报告)
 - `GET /api/agent/history?version_id=`、`POST /api/agent/apply`(采纳为草稿;编辑历史落盘 agent_history.json)
 - `POST /api/duel {a,b}`(同步,要求两版均已评测)

@@ -36,16 +36,13 @@ export function ComposePage() {
   )
   const [cot, setCot] = useState<'full' | 'melody' | 'off'>('full')
   const [seedText, setSeedText] = useState('')
-  const [cfg, setCfg] = useState(1.0)
+  // keep the raw text so intermediate states like "1." survive typing
+  const [cfgText, setCfgText] = useState('1.0')
+  const cfg = Math.min(2, Math.max(1, Number(cfgText) || 1))
   const [jobId, setJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const { events, done, job } = useJobStream(jobId)
-
-  const result = useMemo(() => {
-    const r = job?.result ?? events.find((e) => e.result)?.result
-    return (r ?? undefined) as GenResult | undefined
-  }, [job, events])
+  const { events, done, job, result } = useJobStream(jobId)
 
   const latest = useMemo(() => lastStageEvent(events), [events])
   const elapsed = useElapsed(jobId, done)
@@ -117,8 +114,9 @@ export function ComposePage() {
                 step="0.05"
                 min="1"
                 max="2"
-                value={cfg}
-                onChange={(e) => setCfg(Number(e.target.value) || 1)}
+                value={cfgText}
+                onChange={(e) => setCfgText(e.target.value)}
+                onBlur={() => setCfgText(cfg.toFixed(2))}
               />
             </div>
           </div>
@@ -133,7 +131,7 @@ export function ComposePage() {
       <div className="space-y-5">
         {!jobId && <EmptyState />}
         {jobId && <JobPanel jobId={jobId} latest={latest} events={events} elapsed={elapsed} done={done} />}
-        {done && result && <ResultCard result={result} job={job} />}
+        {done && result && <ResultCard result={result as GenResult} job={job} />}
       </div>
     </div>
   )
@@ -244,7 +242,7 @@ function ResultCard({ result, job }: { result: GenResult; job: ReturnType<typeof
             onClick={() => api<{ job_id: string }>('/library/import-version', {
               method: 'POST',
               body: JSON.stringify({ version_id: result.version_id }),
-            }).then((r) => setLibJob(r.job_id))}
+            }).then((r) => setLibJob(r.job_id)).catch((e) => alert(String(e)))}
             title="加入音乐库(自动分析打标)">
             {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} 加入音乐库
           </Button>

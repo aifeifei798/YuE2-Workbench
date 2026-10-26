@@ -8,6 +8,7 @@ and decoded via the VAE.
 """
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -160,6 +161,8 @@ def make_candidates(version, region: tuple[float, float], n: int, seeds: list | 
 def apply_candidate(version, punch_id: str, idx: int, emit) -> dict:
     """Blend the chosen candidate into the song latents and decode a new version."""
     emit = emit or (lambda **e: None)
+    if not re.fullmatch(r"[A-Za-z0-9_\-]+", punch_id):
+        raise ValueError("invalid punch id")
     ctx = load_context(version)
     punch_dir = ctx["dir"] / "punches" / punch_id
     manifest = json.loads((punch_dir / "punch.json").read_text(encoding="utf-8"))

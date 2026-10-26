@@ -16,7 +16,9 @@ ALLOWED_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".wma"
 
 
 @router.post("/upload")
-async def upload(file: UploadFile = File(...)):
+def upload(file: UploadFile = File(...)):
+    # sync def: FastAPI runs it in the threadpool, so a large copy doesn't
+    # block the event loop (SSE heartbeats etc.)
     ext = Path(file.filename or "audio.mp3").suffix.lower()
     if ext not in ALLOWED_EXTS:
         raise HTTPException(400, f"unsupported file type: {ext}")
@@ -60,4 +62,34 @@ async def stems(req: StemsIn):
     if not req.path and not req.version_id:
         raise HTTPException(400, "path or version_id required")
     job = queue.submit("stems", {"path": req.path, "version_id": req.version_id})
+    return {"job_id": job.id}
+
+
+class LyricsIn(BaseModel):
+    path: str | None = None
+    version_id: str | None = None
+    language: str | None = None
+
+
+class AnalyzeIn(BaseModel):
+    path: str | None = None
+    version_id: str | None = None
+
+
+@router.post("/lyrics", status_code=202)
+async def lyrics(req: LyricsIn):
+    if not req.path and not req.version_id:
+        raise HTTPException(400, "path or version_id required")
+    job = queue.submit(
+        "lyrics",
+        {"path": req.path, "version_id": req.version_id, "language": req.language},
+    )
+    return {"job_id": job.id}
+
+
+@router.post("/analyze", status_code=202)
+async def analyze(req: AnalyzeIn):
+    if not req.path and not req.version_id:
+        raise HTTPException(400, "path or version_id required")
+    job = queue.submit("analyze", {"path": req.path, "version_id": req.version_id})
     return {"job_id": job.id}

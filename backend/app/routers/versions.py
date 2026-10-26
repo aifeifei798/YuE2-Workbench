@@ -95,39 +95,41 @@ def fork_version(version_id: str, req: ForkOut | None = None):
         raise HTTPException(400, "version has no artifacts to fork")
     db = SessionLocal()
     new_v = None
+    ndir = None
     try:
-        from sqlalchemy import func
-
-        vnum = (
-            db.query(func.max(Version.v)).filter(Version.project_id == v.project_id).scalar() or 0
-        ) + 1
-        ndir = settings.data_dir / "projects" / v.project_id / f"v{vnum:02d}"
-        ndir.mkdir(parents=True, exist_ok=True)
-        for name in ("song.flac", "plan.abc", "semantic.npy", "latents.npy", "config.json"):
-            src = vdir / name
-            if src.exists():
-                shutil.copy2(src, ndir / name)
-        note = (req.note if req else None) or f"自 v{v.v} 复制"
         from ..models.tables import uid
+        from ..services.tasks import VLOCK, _alloc_version_dir
 
-        new_v = Version(
-            id=uid("v"),
-            project_id=v.project_id,
-            v=vnum,
-            source="fork",
-            parent_version_id=v.id,
-            note=note[:60],
-            status="done",
-            abc=v.abc,
-            audio_path=str(ndir / "song.flac"),
-            latents_path=str(ndir / "latents.npy") if (ndir / "latents.npy").exists() else None,
-            semantic_path=str(ndir / "semantic.npy") if (ndir / "semantic.npy").exists() else None,
-            duration=v.duration,
-            config_json=v.config_json,
-        )
-        db.add(new_v)
-        db.commit()
+        with VLOCK:
+            vnum, ndir = _alloc_version_dir(db, v.project_id)
+            for name in ("song.flac", "plan.abc", "semantic.npy", "latents.npy", "config.json"):
+                src = vdir / name
+                if src.exists():
+                    shutil.copy2(src, ndir / name)
+            note = (req.note if req else None) or f"自 v{v.v} 复制"
+            new_v = Version(
+                id=uid("v"),
+                project_id=v.project_id,
+                v=vnum,
+                source="fork",
+                parent_version_id=v.id,
+                note=note[:60],
+                status="done",
+                abc=v.abc,
+                audio_path=str(ndir / "song.flac"),
+                latents_path=str(ndir / "latents.npy") if (ndir / "latents.npy").exists() else None,
+                semantic_path=str(ndir / "semantic.npy") if (ndir / "semantic.npy").exists() else None,
+                duration=v.duration,
+                config_json=v.config_json,
+            )
+            db.add(new_v)
+            db.commit()
         return {"version_id": new_v.id, "v": vnum}
+    except Exception:
+        # don't leave a half-populated vNN dir behind if the fork failed
+        if new_v is None and ndir is not None:
+            shutil.rmtree(ndir, ignore_errors=True)
+        raise
     finally:
         db.close()
 

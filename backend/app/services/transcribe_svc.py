@@ -51,7 +51,7 @@ def transcribe_file(src: str, out_dir: Path, melody_only: bool = False, emit=Non
         "abc": abc,
         "melody_only": melody_only,
         "dir": str(out_dir),
-        "files": {name: f"/audio/transcriptions/{out_dir.name}/{name}" for name in files},
+        "files": files,
         "summary": summary,
     }
 
