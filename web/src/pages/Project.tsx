@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Bot, ChevronLeft, Gauge, Loader2, Play, Scissors, Repeat, PencilRuler } from 'lucide-react'
+import { Bot, ChevronLeft, Gauge, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -31,6 +31,27 @@ export function ProjectPage() {
   const { id } = useParams()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [selected, setSelected] = useState<VersionOut | null>(null)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+
+  function startRename() {
+    if (!project) return
+    setTitleDraft(project.title)
+    setEditingTitle(true)
+  }
+
+  async function saveRename() {
+    if (!project) return
+    const t = titleDraft.trim()
+    if (!t) return
+    try {
+      await api(`/projects/${project.id}`, { method: 'PATCH', body: JSON.stringify({ title: t }) })
+      setEditingTitle(false)
+      load()
+    } catch (e) {
+      alert(String(e))
+    }
+  }
 
   const load = useCallback(() => {
     if (!id) return
@@ -55,8 +76,35 @@ export function ProjectPage() {
     <div className="mx-auto max-w-6xl p-5">
       <div className="mb-4 flex items-center gap-3">
         <Link to="/projects" className="text-zinc-500 hover:text-zinc-200"><ChevronLeft size={18} /></Link>
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{project.title}</h1>
+        <div className="min-w-0 flex-1">
+          {editingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={titleDraft}
+                maxLength={80}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveRename()
+                  if (e.key === 'Escape') setEditingTitle(false)
+                }}
+                className="h-9 w-full max-w-md rounded-lg border border-emerald-500/60 bg-zinc-900 px-3 text-base font-semibold text-zinc-100 focus:outline-none"
+              />
+              <Button size="sm" onClick={saveRename}>保存</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingTitle(false)}>取消</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-lg font-semibold">{project.title}</h1>
+              <button
+                title="重命名"
+                onClick={startRename}
+                className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-emerald-400"
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
+          )}
           <div className="truncate text-xs text-zinc-500">{project.style}</div>
         </div>
       </div>

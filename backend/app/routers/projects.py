@@ -1,5 +1,7 @@
 import time
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -98,6 +100,40 @@ def get_project(project_id: str):
                 for j in jobs
             ],
         }
+    finally:
+        db.close()
+
+
+class ProjectPatch(BaseModel):
+    title: str | None = None
+    style: str | None = None
+    lyrics: str | None = None
+    cot: Literal["full", "melody", "off"] | None = None
+    seed: int | None = None
+
+
+@router.patch("/{project_id}")
+def update_project(project_id: str, req: ProjectPatch):
+    db = SessionLocal()
+    try:
+        p = db.get(Project, project_id)
+        if p is None:
+            raise HTTPException(404)
+        if req.title is not None:
+            title = req.title.strip()
+            if not title:
+                raise HTTPException(400, "歌名不能为空")
+            p.title = title[:80]
+        if req.style is not None:
+            p.style = req.style
+        if req.lyrics is not None:
+            p.lyrics = req.lyrics
+        if req.cot is not None:
+            p.cot = req.cot
+        if req.seed is not None:
+            p.seed = req.seed
+        db.commit()
+        return {"id": p.id, "title": p.title}
     finally:
         db.close()
 
