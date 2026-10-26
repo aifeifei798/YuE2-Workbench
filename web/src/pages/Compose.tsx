@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Layers, LibraryBig } from 'lucide-react'
 import { Loader2, Music4, Sparkles } from 'lucide-react'
 import { api, TERMINAL, type Job, type JobEvent } from '@/lib/api'
@@ -26,19 +26,48 @@ type GenResult = {
   urls: { audio: string; abc: string }
 }
 
+const FORM_KEY = 'wb_compose'
+const DEFAULT_PRESETS = [
+  { label: '流行抒情', style: 'Mandopop ballad, emotional female vocal, piano, strings, gentle drums' },
+  { label: '爵士放克', style: 'Jazz-funk, warm lead vocal, Rhodes piano, electric bass, tight drums' },
+  { label: '城市 R&B', style: 'Urban R&B, smooth vocal, electric piano, sub bass, laid-back groove' },
+  { label: '民谣', style: 'Chinese folk, acoustic guitar, soft male vocal, warm and intimate' },
+  { label: '电子舞曲', style: 'EDM, powerful female vocal, synth leads, four-on-the-floor kick, bright plucks' },
+  { label: '摇滚', style: 'Alternative rock, gritty male vocal, distorted guitars, live drums, energetic' },
+]
+
+function loadForm(): Partial<{ title: string; style: string; lyrics: string; cot: string; seedText: string; cfgText: string }> {
+  try {
+    return JSON.parse(localStorage.getItem(FORM_KEY) ?? 'null') ?? {}
+  } catch {
+    return {}
+  }
+}
+
 export function ComposePage() {
-  const [title, setTitle] = useState('')
+  const saved = useMemo(loadForm, [])
+  const [title, setTitle] = useState(saved.title ?? '')
   const [style, setStyle] = useState(
-    'Jazz-funk, warm lead vocal, Rhodes piano, electric bass, tight drums',
+    saved.style ?? 'Jazz-funk, warm lead vocal, Rhodes piano, electric bass, tight drums',
   )
   const [lyrics, setLyrics] = useState(
-    '[Verse]\n夜色漫过窗台 思绪不肯睡去\n霓虹在街角练习一支舞\n\n[Chorus]\n今晚不眠 让节拍带路\n心跳和贝斯一起失守',
+    saved.lyrics ??
+      '[Verse]\n夜色漫过窗台 思绪不肯睡去\n霓虹在街角练习一支舞\n\n[Chorus]\n今晚不眠 让节拍带路\n心跳和贝斯一起失守',
   )
-  const [cot, setCot] = useState<'full' | 'melody' | 'off'>('full')
-  const [seedText, setSeedText] = useState('')
+  const [cot, setCot] = useState<'full' | 'melody' | 'off'>((saved.cot as 'full' | 'melody' | 'off') ?? 'full')
+  const [seedText, setSeedText] = useState(saved.seedText ?? '')
   // keep the raw text so intermediate states like "1." survive typing
-  const [cfgText, setCfgText] = useState('1.0')
+  const [cfgText, setCfgText] = useState(saved.cfgText ?? '1.0')
   const cfg = Math.min(2, Math.max(1, Number(cfgText) || 1))
+  const [presets, setPresets] = useState<{ label: string; style: string }[]>(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('wb_style_presets') ?? 'null')
+      return [...DEFAULT_PRESETS, ...(Array.isArray(user) ? user : [])]
+    } catch {
+      return DEFAULT_PRESETS
+    }
+  })
+  const [refInfo, setRefInfo] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -59,6 +88,42 @@ export function ComposePage() {
 
   const latest = useMemo(() => lastStageEvent(events), [events])
   const elapsed = useElapsed(jobId, done)
+
+  // persist the form so a refresh never loses work in progress
+  useEffect(() => {
+    localStorage.setItem(FORM_KEY, JSON.stringify({ title, style, lyrics, cot, seedText, cfgText }))
+  }, [title, style, lyrics, cot, seedText, cfgText])
+
+  // reference-track style prefill (from Library "以此曲风格创作")
+  const location = useLocation()
+  useEffect(() => {
+    const refItemId = (location.state as { refItemId?: string } | null)?.refItemId
+    if (!refItemId) return
+    api<{ title: string; tags: string[]; key?: string | null; tempo?: number | null }>(`/library/${refItemId}`)
+      .then((it) => {
+        const parts = [...(it.tags ?? [])]
+        if (it.key) parts.push(it.key)
+        if (it.tempo) parts.push(`${Math.round(it.tempo)} BPM`)
+        if (parts.length) setStyle(parts.join(', '))
+        setRefInfo(`已从「${it.title}」导入风格标签,可再手改`)
+      })
+      .catch(() => {})
+    window.history.replaceState({}, '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // lyrics doctor: cheap structural hints before burning GPU time
+  const lyricDiag = useMemo(() => {
+    const lines = lyrics.split('\n').map((s) => s.trim())
+    const sections = lines.filter((l) => /^\[[^\]]+\]$/.test(l)).length
+    const body = lines.filter((l) => l && !l.startsWith('['))
+    const long = body.filter((l) => [...l].length > 18).length
+    const issues: string[] = []
+    if (body.length === 0) issues.push('还没有歌词内容')
+    else if (sections === 0) issues.push('没有 [Verse]/[Chorus] 等段落标记')
+    if (long > 0) issues.push(`${long} 行超过 18 字,演唱可能被截断`)
+    return { sections, body: body.length, long, issues }
+  }, [lyrics])
 
   async function submit() {
     setError(null)
@@ -106,12 +171,52 @@ export function ComposePage() {
             />
           </div>
           <div>
-            <Label hint="描述曲风、人声、乐器、氛围">风格</Label>
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-xs font-medium text-zinc-300">风格</span>
+              <span className="flex-1" />
+              <SelectMenu
+                className="w-40"
+                value=""
+                onChange={(v) => {
+                  const p = presets.find((x) => x.label === v)
+                  if (p) setStyle(p.style)
+                }}
+                options={[{ value: '', label: '风格预设…' }, ...presets.map((p) => ({ value: p.label, label: p.label }))]}
+              />
+              <button
+                className="text-[11px] text-zinc-500 hover:text-emerald-400"
+                onClick={() => {
+                  const label = window.prompt('预设名称(将当前风格保存为预设)')
+                  if (!label || !style.trim()) return
+                  const next = [...presets, { label: label.trim(), style }]
+                  setPresets(next)
+                  localStorage.setItem('wb_style_presets', JSON.stringify(next.slice(DEFAULT_PRESETS.length)))
+                }}
+              >
+                存为预设
+              </button>
+            </div>
             <Textarea rows={3} value={style} onChange={(e) => setStyle(e.target.value)} />
+            {refInfo && <div className="mt-1 text-[11px] text-emerald-400/80">{refInfo}</div>}
           </div>
           <div>
-            <Label hint="[Verse] [Chorus] 等段落标记">歌词</Label>
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <span className="text-xs font-medium text-zinc-300">歌词</span>
+              <span className="text-[11px] text-zinc-500">[Verse] [Chorus] 等段落标记</span>
+            </div>
             <Textarea rows={9} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="font-mono text-[13px]" />
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400">段落 {lyricDiag.sections}</span>
+              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400">歌词行 {lyricDiag.body}</span>
+              {lyricDiag.issues.map((msg) => (
+                <span key={msg} className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-400">
+                  {msg}
+                </span>
+              ))}
+              {!lyricDiag.issues.length && lyricDiag.body > 0 && (
+                <span className="text-emerald-400/80">结构看起来不错</span>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>

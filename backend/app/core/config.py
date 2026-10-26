@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     sheetsage_repo: str = "m-a-p/SheetSage2"
     mert_repo: str = "m-a-p/MERT-v2-FullSong"
     asr_repo: str = "Qwen/Qwen3-ASR-0.6B"
+    asr_aligner_repo: str = "Qwen/Qwen3-ForcedAligner-0.6B"
     agent_repo: str = "Qwen/Qwen3-0.6B"
     max_queue: int = 10
 

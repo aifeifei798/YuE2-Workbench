@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Square, Repeat, PencilRuler, Trash2 } from 'lucide-react'
+import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, Layers, LibraryBig, Loader2, Mic2, Pencil, Play, Scissors, Sparkles, Square, Repeat, PencilRuler, Trash2 } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -147,6 +147,41 @@ export function ProjectPage() {
   )
 }
 
+const SOURCE_ICON: Record<string, ReactNode> = {
+  generated: <Sparkles size={11} />,
+  sweep: <Layers size={11} />,
+  fork: <Copy size={11} />,
+  punch: <Scissors size={11} />,
+  relyrics: <Repeat size={11} />,
+  rerender: <PencilRuler size={11} />,
+}
+
+// depth-first lineage order: roots newest first, children chronological
+function treeOrder(versions: VersionOut[]): { v: VersionOut; depth: number }[] {
+  const byId = new Map(versions.map((v) => [v.id, v]))
+  const children = new Map<string | null, VersionOut[]>()
+  for (const v of versions) {
+    const key = v.parent_version_id && byId.has(v.parent_version_id) ? v.parent_version_id : null
+    children.set(key, [...(children.get(key) ?? []), v])
+  }
+  for (const [key, list] of children) {
+    list.sort((x, y) => (key === null ? y.v - x.v : x.v - y.v))
+  }
+  const out: { v: VersionOut; depth: number }[] = []
+  const walk = (key: string | null, depth: number) => {
+    for (const v of children.get(key) ?? []) {
+      out.push({ v, depth })
+      walk(v.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  const seen = new Set(out.map((o) => o.v.id))
+  for (const v of [...versions].sort((a, b) => a.v - b.v)) {
+    if (!seen.has(v.id)) out.push({ v, depth: 1 }) // orphaned lineage
+  }
+  return out
+}
+
 function VersionList({
   project,
   selected,
@@ -156,20 +191,24 @@ function VersionList({
   selected: VersionOut | null
   onSelect: (v: VersionOut) => void
 }) {
+  const ordered = treeOrder(project.versions)
   return (
     <Card>
-      <CardHeader title="版本" desc={`${project.versions.length} 个 · 点击载入工作区`} />
+      <CardHeader title="版本" desc={`${project.versions.length} 个 · 按谱系排列,点击载入工作区`} />
       <CardBody className="space-y-1 p-2">
-        {project.versions.length === 0 && <div className="p-3 text-xs text-zinc-500">暂无版本</div>}
-        {project.versions.map((v) => (
+        {ordered.length === 0 && <div className="p-3 text-xs text-zinc-500">暂无版本</div>}
+        {ordered.map(({ v, depth }) => (
           <button
             key={v.id}
             onClick={() => onSelect(v)}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+            style={{ paddingLeft: 8 + depth * 18 }}
+            className={`flex w-full items-center justify-between rounded-lg py-2 pr-3 text-left text-sm transition-colors ${
               selected?.id === v.id ? 'bg-emerald-500/10 text-emerald-300' : 'text-zinc-300 hover:bg-zinc-800'
             }`}
           >
-            <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              {depth > 0 && <span className="shrink-0 text-[10px] text-zinc-600">└</span>}
+              <span className="shrink-0 text-zinc-600">{SOURCE_ICON[v.source] ?? null}</span>
               <span className="shrink-0 font-mono text-xs">v{v.v}</span>
               <span className="min-w-0 truncate text-xs text-zinc-500">{v.note || v.source}</span>
             </span>
@@ -235,6 +274,10 @@ function Workspace({
   const [trans, setTrans] = useState<TransInfo | null>(null)
   const [transJob, setTransJob] = useState<string | null>(null)
   const transStream = useJobStream(transJob)
+  const [lyricJob, setLyricJob] = useState<string | null>(null)
+  const lyricStream = useJobStream(lyricJob)
+  const [lrcText, setLrcText] = useState<string | null>(null)
+  const [showLrc, setShowLrc] = useState(false)
   const [agentHist, setAgentHist] = useState<AgentHistItem[]>([])
   const [savedDraft, setSavedDraft] = useState(false)
   const stemJobRef = useRef(false)
@@ -313,6 +356,48 @@ function Workspace({
   }, [transStream.done])
 
   useEffect(() => {
+    if (lyricStream.done && lyricStream.job?.result && version) {
+      const res = lyricStream.job.result as { saved?: boolean; note?: string }
+      setLyricJob(null)
+      if (res.saved) {
+        onRefresh()
+        fetch(version.urls!.audio.replace(/song\.flac$/, 'lyrics.lrc'))
+          .then((r) => r.text())
+          .then((t) => {
+            setLrcText(t)
+            setShowLrc(true)
+          })
+          .catch(() => {})
+      } else {
+        alert(res.note ?? '歌词对齐不可用')
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lyricStream.done])
+
+  function loadLrc() {
+    if (!version) return
+    const lrcUrl = version.urls?.lrc
+    if (lrcUrl) {
+      if (showLrc) {
+        setShowLrc(false)
+        return
+      }
+      fetch(lrcUrl)
+        .then((r) => r.text())
+        .then((t) => {
+          setLrcText(t)
+          setShowLrc(true)
+        })
+        .catch((e) => alert(String(e)))
+      return
+    }
+    api<{ job_id: string }>('/lyrics', { method: 'POST', body: JSON.stringify({ version_id: version.id }) })
+      .then((r) => setLyricJob(r.job_id))
+      .catch((e) => alert(String(e)))
+  }
+
+  useEffect(() => {
     if (showAgent) {
       if (version) api<AgentHistItem[]>(`/agent/history?version_id=${version.id}`).then(setAgentHist).catch(() => {})
     } else {
@@ -339,6 +424,9 @@ function Workspace({
     setShowStems(false)
     setTrans(null)
     setShowTrans(false)
+    setLyricJob(null)
+    setLrcText(null)
+    setShowLrc(false)
     setSavedDraft(false)
     stemJobRef.current = false
     stopAudition()
@@ -425,6 +513,14 @@ function Workspace({
   }
 
   const cfg = (version.config ?? {}) as Record<string, unknown>
+
+  const lrcLines = (lrcText ?? '')
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/)
+      return m ? { t: Number(m[1]) * 60 + Number(m[2]), text: m[3].trim() } : null
+    })
+    .filter((x): x is { t: number; text: string } => x !== null)
 
   function startPunch(n: number) {
     if (!region || !version) return
@@ -676,6 +772,9 @@ function Workspace({
             <Button size="sm" variant="outline" onClick={loadTranscription}>
               {transJob && !transStream.done ? <Loader2 className="animate-spin" size={13} /> : <FileSearch size={13} />} 转录
             </Button>
+            <Button size="sm" variant="outline" onClick={loadLrc} title="ASR 歌词对齐,生成带时间轴的 .lrc">
+              {lyricJob && !lyricStream.done ? <Loader2 className="animate-spin" size={13} /> : <Mic2 size={13} />} LRC
+            </Button>
             <Button size="sm" variant="outline" onClick={loadStems}>
               {stemJob && !stemStream.done ? <Loader2 className="animate-spin" size={13} /> : <AudioLines size={13} />} 分轨
             </Button>
@@ -759,6 +858,27 @@ function Workspace({
 
       {transJob && !transStream.done && <JobPanel jobId={transJob} events={transStream.events} done={transStream.done} title="扒谱中" />}
       {stemJob && !stemStream.done && <JobPanel jobId={stemJob} events={stemStream.events} done={stemStream.done} title="分离分轨" />}
+      {lyricJob && !lyricStream.done && <JobPanel jobId={lyricJob} events={lyricStream.events} done={lyricStream.done} title="歌词对齐" />}
+
+      {showLrc && lrcText && (
+        <Card>
+          <CardHeader
+            title="LRC 歌词"
+            desc={`${lrcLines.length} 行 · 时间轴来自 ASR 对齐,按停顿分行`}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setShowLrc(false)}>收起</button>}
+          />
+          <CardBody className="max-h-72 space-y-0.5 overflow-auto">
+            {lrcLines.map((l, i) => (
+              <div key={i} className="flex gap-3 text-xs">
+                <span className="w-14 shrink-0 font-mono text-zinc-600">
+                  {`${String(Math.floor(l.t / 60)).padStart(2, '0')}:${(l.t % 60).toFixed(2).padStart(5, '0')}`}
+                </span>
+                <span className="text-zinc-200">{l.text}</span>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
 
       {showAbc && (
         <Card className="scroll-mt-16" id="abc-editor">
@@ -926,6 +1046,7 @@ function Workspace({
             <span className="text-zinc-600" title="先跑一次分轨">分轨 ZIP</span>
           )}
           <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title="整曲 + ABC + 转录 MIDI + 分轨打包">DAW 包</a>
+          {version.urls?.lrc && <a href={version.urls.lrc} download className="hover:text-emerald-400">LRC</a>}
           <button
             className="hover:text-emerald-400"
             onClick={() => {

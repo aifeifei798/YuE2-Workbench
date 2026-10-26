@@ -432,25 +432,56 @@ def run_evaluate_batch(params: dict, emit, cancelled) -> dict:
     finally:
         db.close()
 def run_lyrics(params: dict, emit, cancelled) -> dict:
-    from pathlib import Path
+    from ..models.tables import Project, Version
+    from .asr_svc import align_reference_lines, build_lrc, transcribe_lyrics
 
-    from ..core.db import SessionLocal
-    from ..models.tables import Version
-    from .asr_svc import transcribe_lyrics
-
-    src = params.get("path")
+    src = None
+    version = None
     if not src and params.get("version_id"):
         db = SessionLocal()
         try:
-            v = db.get(Version, params["version_id"])
-            if v is None or not v.audio_path:
+            version = db.get(Version, params["version_id"])
+            if version is None or not version.audio_path:
                 raise ValueError("version not found or has no audio")
-            src = v.audio_path
+            src = version.audio_path
         finally:
             db.close()
+    src = src or params.get("path")
     if not src or not Path(src).exists():
         raise ValueError("provide path or version_id")
-    return transcribe_lyrics(src, emit=emit, language=params.get("language"))
+    res = transcribe_lyrics(src, emit=emit, language=params.get("language"), with_timestamps=True)
+
+    if version is not None:
+        # prefer the user's own lyrics, timed by fuzzy alignment onto the ASR timeline
+        ref_lyrics = (version.config_json or {}).get("lyrics") or ""
+        ref_lines = align_reference_lines(ref_lyrics, res.get("items") or []) if ref_lyrics.strip() else []
+        if ref_lines:
+            res["segments"] = ref_lines
+            res["lyrics_source"] = "reference"
+        else:
+            res["lyrics_source"] = "asr"
+
+    if params.get("version_id") and version is not None and res.get("segments"):
+        from ..core.db import SessionLocal as _SL
+
+        db = _SL()
+        try:
+            p = db.get(Project, version.project_id)
+            title = p.title if p else ""
+            vdir = Path(version.audio_path).parent
+            (vdir / "lyrics.lrc").write_text(
+                build_lrc(res["segments"], title=title), encoding="utf-8"
+            )
+            (vdir / "lyrics.json").write_text(
+                json.dumps({"text": res.get("text", ""), "segments": res["segments"]}, ensure_ascii=False, indent=1),
+                encoding="utf-8",
+            )
+            res["saved"] = True
+        finally:
+            db.close()
+    if not res.get("segments"):
+        res["note"] = "对齐器不可用(未下载或未缓存),仅返回整段文本"
+    return res
 
 
 def run_analyze(params: dict, emit, cancelled) -> dict:

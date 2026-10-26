@@ -172,6 +172,19 @@ def delete_project(project_id: str):
 
 def _version_out(v: Version) -> dict:
     base = f"/audio/projects/{v.project_id}/v{v.v:02d}" if v.audio_path else None
+    vdir = settings.data_dir / "projects" / v.project_id / f"v{v.v:02d}"
+    urls = (
+        {
+            "audio": f"{base}/song.flac",
+            "abc": f"{base}/plan.abc",
+            "latents": f"{base}/latents.npy",
+            "semantic": f"{base}/semantic.npy",
+        }
+        if base
+        else None
+    )
+    if urls and (vdir / "lyrics.lrc").exists():
+        urls["lrc"] = f"{base}/lyrics.lrc"
     return {
         "id": v.id,
         "v": v.v,
@@ -183,14 +196,5 @@ def _version_out(v: Version) -> dict:
         "abc": v.abc,
         "config": v.config_json,
         "created_at": v.created_at,
-        "urls": (
-            {
-                "audio": f"{base}/song.flac",
-                "abc": f"{base}/plan.abc",
-                "latents": f"{base}/latents.npy",
-                "semantic": f"{base}/semantic.npy",
-            }
-            if base
-            else None
-        ),
+        "urls": urls,
     }

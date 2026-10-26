@@ -87,12 +87,27 @@ class ModelManager:
                 from qwen_asr import Qwen3ASRModel
 
                 device_map = "cuda:0" if settings.device == "cuda" else settings.device
-                self._asr = Qwen3ASRModel.from_pretrained(
-                    settings.asr_repo,
-                    dtype=torch.bfloat16,
-                    device_map=device_map,
-                    max_new_tokens=1024,
-                )
+                aligner = None
+                try:
+                    from pathlib import Path
+
+                    from huggingface_hub import snapshot_download
+
+                    if Path(settings.asr_aligner_repo).exists():
+                        aligner = settings.asr_aligner_repo  # local directory
+                    else:
+                        snapshot_download(settings.asr_aligner_repo, local_files_only=True)
+                        aligner = settings.asr_aligner_repo  # cached HF repo
+                except Exception:
+                    pass  # aligner not available (offline): timestamps disabled
+                kwargs = dict(dtype=torch.bfloat16, device_map=device_map, max_new_tokens=1024)
+                if aligner:
+                    self._asr = Qwen3ASRModel.from_pretrained(
+                        settings.asr_repo, forced_aligner=aligner, **kwargs
+                    )
+                else:
+                    print("[models] ASR aligner not available, timestamps disabled", flush=True)
+                    self._asr = Qwen3ASRModel.from_pretrained(settings.asr_repo, **kwargs)
             return self._asr
 
     def vae(self):

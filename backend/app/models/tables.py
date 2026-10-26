@@ -74,3 +74,15 @@ class Job(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
     started_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     finished_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class BlindTest(Base):
+    """One human A/B listening vote (blind: labels are just 'A'/'B')."""
+
+    __tablename__ = "blind_tests"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    a_version_id: Mapped[str] = mapped_column(String(32), ForeignKey("versions.id"))
+    b_version_id: Mapped[str] = mapped_column(String(32), ForeignKey("versions.id"))
+    winner: Mapped[str] = mapped_column(String(8))  # 'a' | 'b' | 'tie'
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
