@@ -35,7 +35,20 @@
 
 FastAPI(SQLite + 任务队列 + SSE 进度) · Vite + React + TypeScript + Tailwind CSS v4 · wavesurfer.js + abcjs · 单卡懒加载 ModelManager
 
-## 🚀 快速开始
+## 🚀 安装与运行
+
+```bash
+./install.sh            # 环境自检 + venv + 全部依赖 + 前端构建(一条龙)
+./install.sh --check    # 只做环境自检
+./install.sh --models   # 可选:一次性预下载 7 个模型(约 15GB)
+./server.sh start       # 后台启动并等待健康检查
+./server.sh status      # 运行状态 / 模型驻留 / 显存 / 队列
+./server.sh restart     # 重启      ./server.sh stop  停止
+./server.sh logs -f     # 跟随日志   ./server.sh health 脚本化健康检查
+./server.sh dev         # 开发模式(后端热更新 + Vite 5173)
+```
+
+<details><summary>手动安装(等价步骤)</summary>
 
 ```bash
 # 1) 环境(.venv:torch 2.11.0+cu130 / transformers 4.57.6 / yue2-infer 0.1.6)
@@ -49,13 +62,11 @@ uv pip install --python .venv/bin/python --no-deps demucs julius lameenc openunm
 # 2) 前端构建(或 ./server.sh build)
 cd web && npm install && npm run build && cd ..
 
-# 3) 启动(前端 dist 由后端同服,打开 http://127.0.0.1:8000)
-./server.sh
-# 开发热更新模式:./server.sh dev (后端 8000 + Vite 5173)
-
-# 4) 冒烟
+# 3) 冒烟
 .venv/bin/python smoke/smoke_all.py
 ```
+
+</details>
 
 冒烟实测(2026-10-27,RTX 5090 D):YuE2 加载 9.4s,39s 歌曲端到端 13.3s;SheetSage2 加载 22.2s、转录 5.0s(ABC / 分轨 MIDI / 节拍·和弦·调性·结构标注);MERT 提特征 2.8s;HTDemucs 四轨 4.3s;VAE 解码 1.0s。
 
