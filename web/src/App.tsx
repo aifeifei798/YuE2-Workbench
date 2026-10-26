@@ -31,28 +31,28 @@ function Nav() {
         </span>
         <nav className="flex flex-nowrap items-center gap-1 overflow-x-auto text-sm">
           <NavLink to="/" title="创作台" end className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Sparkles size={14} /><span className="hidden md:inline">创作台</span>
+            <Sparkles size={14} />
           </NavLink>
           <NavLink to="/projects" title="项目库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <FolderOpen size={14} /><span className="hidden md:inline">项目库</span>
+            <FolderOpen size={14} />
           </NavLink>
           <NavLink to="/transcribe" title="扒谱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <FileAudio size={14} /><span className="hidden md:inline">扒谱</span>
+            <FileAudio size={14} />
           </NavLink>
           <NavLink to="/library" title="音乐库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <LibraryBig size={14} /><span className="hidden md:inline">音乐库</span>
+            <LibraryBig size={14} />
           </NavLink>
           <NavLink to="/cover" title="翻唱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Mic2 size={14} /><span className="hidden md:inline">翻唱</span>
+            <Mic2 size={14} />
           </NavLink>
           <NavLink to="/blind" title="盲听对决" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Ear size={14} /><span className="hidden md:inline">盲测</span>
+            <Ear size={14} />
           </NavLink>
           <NavLink to="/leaderboard" title="排行榜" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Trophy size={14} /><span className="hidden md:inline">排行榜</span>
+            <Trophy size={14} />
           </NavLink>
           <NavLink to="/system" title="系统/模型管理" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Settings size={14} /><span className="hidden md:inline">系统</span>
+            <Settings size={14} />
           </NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">
