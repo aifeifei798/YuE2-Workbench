@@ -29,6 +29,7 @@ type VersionDetail = {
   has_stems: boolean
   has_beats: boolean
   has_analysis: boolean
+  has_cover?: boolean
   project_title: string
 }
 type TransInfo = {
@@ -278,6 +279,19 @@ function Workspace({
   const lyricStream = useJobStream(lyricJob)
   const [lrcText, setLrcText] = useState<string | null>(null)
   const [showLrc, setShowLrc] = useState(false)
+  const [coverBusy, setCoverBusy] = useState(false)
+
+  function genCover() {
+    if (!version || coverBusy) return
+    setCoverBusy(true)
+    api<{ url: string }>(`/versions/${version.id}/cover`, { method: 'POST', body: JSON.stringify({ seed: 0 }) })
+      .then((r) => {
+        onRefresh()
+        window.open(r.url, '_blank')
+      })
+      .catch((e) => alert(String(e)))
+      .finally(() => setCoverBusy(false))
+  }
   const [agentHist, setAgentHist] = useState<AgentHistItem[]>([])
   const [savedDraft, setSavedDraft] = useState(false)
   const stemJobRef = useRef(false)
@@ -430,6 +444,15 @@ function Workspace({
     setSavedDraft(false)
     stemJobRef.current = false
     stopAudition()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version?.id])
+
+  // per-version capability flags (has_stems / has_cover / abc_draft …)
+  useEffect(() => {
+    setDetail(null)
+    if (version) {
+      api<VersionDetail>(`/versions/${version.id}`).then(setDetail).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version?.id])
 
@@ -1047,6 +1070,15 @@ function Workspace({
           )}
           <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title="整曲 + ABC + 转录 MIDI + 分轨打包">DAW 包</a>
           {version.urls?.lrc && <a href={version.urls.lrc} download className="hover:text-emerald-400">LRC</a>}
+          {detail?.has_stems && (
+            <a href={`/api/versions/${version.id}/export/instrumental`} download className="hover:text-emerald-400" title="去人声伴奏(鼓+贝斯+其他混音)">伴奏</a>
+          )}
+          {detail?.has_cover && version.urls?.cover ? (
+            <a href={`${version.urls.cover}?t=${detail.abc_draft?.updated_at ?? ''}`} target="_blank" rel="noreferrer" className="hover:text-emerald-400">封面</a>
+          ) : (
+            <button className="hover:text-emerald-400" title="生成程序化封面(渐变 + 真实波形)" onClick={genCover}>{coverBusy ? '生成中…' : '封面'}</button>
+          )}
+          <a href={`/api/versions/${version.id}/export/release`} download className="font-medium text-emerald-400/90 hover:text-emerald-300" title="发布包:整曲 FLAC+MP3 + 封面 + 歌词/LRC + ABC">发布包</a>
           <button
             className="hover:text-emerald-400"
             onClick={() => {

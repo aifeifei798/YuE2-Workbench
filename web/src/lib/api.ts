@@ -22,7 +22,7 @@ export type VersionOut = {
   abc?: string | null
   config?: Record<string, unknown> | null
   created_at: number
-  urls?: { audio: string; abc: string; latents: string; semantic: string; lrc?: string } | null
+  urls?: { audio: string; abc: string; latents: string; semantic: string; lrc?: string; cover?: string } | null
 }
 
 export type ProjectSummary = {

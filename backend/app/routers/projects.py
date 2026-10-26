@@ -185,6 +185,8 @@ def _version_out(v: Version) -> dict:
     )
     if urls and (vdir / "lyrics.lrc").exists():
         urls["lrc"] = f"{base}/lyrics.lrc"
+    if urls and (vdir / "cover.png").exists():
+        urls["cover"] = f"{base}/cover.png"
     return {
         "id": v.id,
         "v": v.v,

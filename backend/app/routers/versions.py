@@ -59,6 +59,7 @@ def _detail(v: Version) -> dict:
     out["has_stems"] = bool(vdir and (vdir / "stems" / "vocals.flac").exists())
     out["has_beats"] = bool(vdir and (vdir / "transcription" / "beat.lab").exists())
     out["has_analysis"] = bool(vdir and (vdir / "analysis.json").exists())
+    out["has_cover"] = bool(vdir and (vdir / "cover.png").exists())
     return out
 
 
@@ -107,6 +108,14 @@ def fork_version(version_id: str, req: ForkOut | None = None):
         with VLOCK:
             vnum, ndir = _alloc_version_dir(db, v.project_id)
             for name in ("song.flac", "plan.abc", "semantic.npy", "latents.npy", "config.json"):
+                src = vdir / name
+                if src.exists():
+                    shutil.copy2(src, ndir / name)
+            for dirname in ("stems", "transcription"):
+                src_dir = vdir / dirname
+                if src_dir.exists():
+                    shutil.copytree(src_dir, ndir / dirname, dirs_exist_ok=True)
+            for name in ("lyrics.lrc", "lyrics.json"):
                 src = vdir / name
                 if src.exists():
                     shutil.copy2(src, ndir / name)
@@ -216,21 +225,123 @@ def _download_name(v: Version, suffix: str) -> str:
     return f"{safe}_v{v.v:02d}{suffix}"
 
 
-@router.get("/{version_id}/export/mp3")
-def export_mp3(version_id: str):
-    """MP3 transcode of song.flac (cached alongside it)."""
-    v = _get_version(version_id)
-    vdir = _vdir(v)
-    src = vdir / "song.flac" if vdir else None
-    if not src or not src.exists():
-        raise HTTPException(404, "version has no audio")
+def _ensure_mp3(vdir: Path) -> Path:
+    src = vdir / "song.flac"
     out = vdir / "song.mp3"
     if not out.exists():
         subprocess.run(
             ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-b:a", "192k", str(out)],
             check=True, capture_output=True,
         )
+    return out
+
+
+@router.get("/{version_id}/export/mp3")
+def export_mp3(version_id: str):
+    """MP3 transcode of song.flac (cached alongside it)."""
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    if not vdir or not (vdir / "song.flac").exists():
+        raise HTTPException(404, "version has no audio")
+    out = _ensure_mp3(vdir)
     return FileResponse(out, media_type="audio/mpeg", filename=_download_name(v, ".mp3"))
+
+
+@router.get("/{version_id}/export/instrumental")
+def export_instrumental(version_id: str):
+    """Karaoke track: drums+bass+other mixed, vocals removed."""
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    sdir = vdir / "stems" if vdir else None
+    parts = [sdir / f"{n}.flac" for n in ("drums", "bass", "other")] if sdir else []
+    if not parts or not all(p.exists() for p in parts):
+        raise HTTPException(404, "还没有分轨,先跑一次分轨")
+    out = vdir / "instrumental.flac"
+    if not out.exists() or out.stat().st_mtime < max(p.stat().st_mtime for p in parts):
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error",
+             "-i", str(parts[0]), "-i", str(parts[1]), "-i", str(parts[2]),
+             "-filter_complex", "[0:a][1:a][2:a]amix=inputs=3:duration=longest:normalize=0[out]",
+             "-map", "[out]", "-ac", "2", "-c:a", "flac", str(out)],
+            check=True, capture_output=True,
+        )
+    return FileResponse(out, media_type="audio/flac", filename=_download_name(v, "_伴奏.flac"))
+
+
+class CoverIn(BaseModel):
+    seed: int = 0
+
+
+@router.post("/{version_id}/cover")
+def make_cover(version_id: str, req: CoverIn | None = None):
+    """Procedural cover art (gradient + real waveform + title), deterministic per seed."""
+    from ..services import artwork_svc
+
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    if not vdir or not (vdir / "song.flac").exists():
+        raise HTTPException(404, "version has no audio")
+    db = SessionLocal()
+    try:
+        p = db.get(Project, v.project_id)
+        title = p.title if p else ""
+    finally:
+        db.close()
+    seed = int(req.seed or 0) if req else 0
+    out = vdir / "cover.png"
+    cfg = v.config_json or {}
+    style = str(cfg.get("style", ""))[:60]
+    artwork_svc.generate_cover(
+        out,
+        title=title,
+        subtitle=f"v{v.v} · seed {cfg.get('seed', '—')} · {v.duration or 0:.0f}s · {style}",
+        audio_path=str(vdir / "song.flac"),
+        seed=seed,
+    )
+    return {"url": f"/audio/{out.relative_to(settings.data_dir)}", "seed": seed}
+
+
+@router.get("/{version_id}/export/release")
+def export_release(version_id: str):
+    """Release bundle: song (flac+mp3) + cover + lyrics/lrc + abc + config."""
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    if not vdir or not (vdir / "song.flac").exists():
+        raise HTTPException(404, "version has no audio")
+    from ..services import artwork_svc
+
+    cover = vdir / "cover.png"
+    if not cover.exists():
+        make_cover(version_id, CoverIn(seed=0))
+    mp3 = _ensure_mp3(vdir)
+
+    db = SessionLocal()
+    try:
+        p = db.get(Project, v.project_id)
+        title = p.title if p else ""
+    finally:
+        db.close()
+    cfg = v.config_json or {}
+    meta = "\n".join([
+        title,
+        f"风格: {cfg.get('style', '')}",
+        f"seed: {cfg.get('seed', '—')} · 时长: {v.duration or 0:.0f}s · v{v.v}",
+        f"生成: YuE2-Workbench",
+    ])
+    (vdir / "release.txt").write_text(meta, encoding="utf-8")
+
+    parts = [vdir / "song.flac", vdir / "song.mp3", vdir / "cover.png", vdir / "release.txt", vdir / "plan.abc"]
+    for extra in ("lyrics.lrc", "config.json"):
+        pp = vdir / extra
+        if pp.exists():
+            parts.append(pp)
+    parts = [p for p in parts if p.exists()]
+    out = vdir / "release.zip"
+    if not out.exists() or out.stat().st_mtime < max(p.stat().st_mtime for p in parts):
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
+            for p in parts:
+                zf.write(p, p.name)
+    return FileResponse(out, media_type="application/zip", filename=_download_name(v, "_发布包.zip"))
 
 
 @router.get("/{version_id}/export/stems.zip")
