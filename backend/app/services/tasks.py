@@ -290,10 +290,7 @@ def run_punch_apply(params: dict, emit, cancelled) -> dict:
         vdir = settings.data_dir / "projects" / version.project_id / f"v{vnum:02d}"
         vdir.mkdir(parents=True, exist_ok=True)
         a, b = result["a"], result["b"]
-        note = params.get("note") or (
-            f"挖补 {a / 25:.1f}-{b / 25:.1f}s · 候选 {result['idx']} "
-            f"(seed {result['manifest']['candidates'][result['idx']]['seed']})"
-        )
+        note = params.get("note") or f"挖补 {a / 25:.1f}-{b / 25:.1f}s #{result['idx'] + 1}"
         new_version = Version(
             id=uid("v"),
             project_id=version.project_id,

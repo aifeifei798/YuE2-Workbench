@@ -89,11 +89,11 @@ function VersionList({
               selected?.id === v.id ? 'bg-emerald-500/10 text-emerald-300' : 'text-zinc-300 hover:bg-zinc-800'
             }`}
           >
-            <span className="flex items-center gap-2">
-              <span className="font-mono text-xs">v{v.v}</span>
-              <span className="truncate text-xs text-zinc-500">{v.note || v.source}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="shrink-0 font-mono text-xs">v{v.v}</span>
+              <span className="min-w-0 truncate text-xs text-zinc-500">{v.note || v.source}</span>
             </span>
-            <span className="flex items-center gap-2">
+            <span className="ml-2 flex shrink-0 items-center gap-2">
               {v.duration ? <span className="text-[11px] text-zinc-500">{Math.round(v.duration)}s</span> : null}
               <Badge status={v.status} />
             </span>
