@@ -3,6 +3,7 @@ import os
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import asyncio
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,6 +15,11 @@ from .core.config import settings
 from .core.db import init_db
 from .routers import agent, compose, cover, jobs, library, projects, system, tools, workspace
 from .services.queue import worker_loop
+
+
+mimetypes.add_type("text/plain", ".abc")
+mimetypes.add_type("text/plain", ".lab")
+mimetypes.add_type("text/plain", ".npy")
 
 
 @asynccontextmanager

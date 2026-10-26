@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/job'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -23,8 +23,12 @@ export function Button({ variant = 'default', size = 'md', className, ...props }
   )
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn('rounded-xl border border-zinc-800 bg-zinc-900/60', className)}>{children}</div>
+export function Card({ className, children, ...rest }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn('rounded-xl border border-zinc-800 bg-zinc-900/60', className)} {...rest}>
+      {children}
+    </div>
+  )
 }
 
 export function CardHeader({ title, desc, right }: { title: ReactNode; desc?: ReactNode; right?: ReactNode }) {

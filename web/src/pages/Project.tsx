@@ -475,7 +475,7 @@ function Workspace({
       )}
 
       {showAbc && (
-        <Card>
+        <Card className="scroll-mt-16" id="abc-editor">
           <CardHeader title="ABC 乐谱编辑" desc="改谱后整曲重渲染:新谱严格约束旋律与和弦,演绎为全新一版(挖补才是局部替换)" />
           <CardBody className="space-y-3">
             <Textarea rows={12} value={abcDraft} onChange={(e) => setAbcDraft(e.target.value)} className="font-mono text-[12px]" />
@@ -598,7 +598,16 @@ function Workspace({
         <CardHeader title="工件" />
         <CardBody className="flex flex-wrap gap-3 text-xs text-zinc-400">
           <a href={version.urls.audio} download className="hover:text-emerald-400">FLAC</a>
-          <a href={version.urls.abc} target="_blank" rel="noreferrer" className="hover:text-emerald-400">ABC</a>
+          <button
+            className="hover:text-emerald-400"
+            onClick={() => {
+              setShowAbc(true)
+              setAbcDraft(version.abc ?? '')
+              setTimeout(() => document.getElementById('abc-editor')?.scrollIntoView({ behavior: 'smooth' }), 80)
+            }}
+          >
+            ABC 查看/编辑
+          </button>
           <a href={version.urls.latents} download className="hover:text-emerald-400">隐变量</a>
           <a href={version.urls.semantic} download className="hover:text-emerald-400">语义 token</a>
           {cfg.abc_provided ? <span className="text-emerald-400/70">外部乐谱驱动</span> : null}

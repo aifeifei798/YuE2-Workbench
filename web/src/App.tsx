@@ -8,6 +8,7 @@ import { TranscribePage } from '@/pages/Transcribe'
 import { LibraryPage } from '@/pages/Library'
 import { CoverPage } from '@/pages/Cover'
 import { LeaderboardPage } from '@/pages/Leaderboard'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 type Health = { status: string; models: { yue2: { loaded: boolean }; gpu?: { name: string; free_gb: number; total_gb: number } } }
 
@@ -64,6 +65,7 @@ export default function App() {
       <div className="flex min-h-full flex-col">
         <Nav />
         <main className="flex-1">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<ComposePage />} />
             <Route path="/projects" element={<ProjectsPage />} />
@@ -73,6 +75,7 @@ export default function App() {
             <Route path="/cover" element={<CoverPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </HashRouter>
