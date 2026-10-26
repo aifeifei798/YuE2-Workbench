@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Bot, ChevronLeft, Gauge, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler } from 'lucide-react'
+import { Bot, ChevronLeft, Gauge, LibraryBig, Loader2, Pencil, Play, Scissors, Repeat, PencilRuler } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -189,6 +189,8 @@ function Workspace({
   const agentStream = useJobStream(agentJob)
   const [duelJob, setDuelJob] = useState<string | null>(null)
   const duelStream = useJobStream(duelJob)
+  const [libJob, setLibJob] = useState<string | null>(null)
+  const libStream = useJobStream(libJob)
 
   const punchResult = useMemo(
     () => (punchStream.job?.result ?? punchStream.events.find((e) => e.result)?.result) as PunchResult | undefined,
@@ -356,6 +358,16 @@ function Workspace({
       }),
     })
       .then((r) => setRerenderJob(r.job_id))
+      .catch((e) => alert(String(e)))
+  }
+
+  function addToLibrary() {
+    if (!version) return
+    api<{ job_id: string }>('/library/import-version', {
+      method: 'POST',
+      body: JSON.stringify({ version_id: version.id }),
+    })
+      .then((r) => setLibJob(r.job_id))
       .catch((e) => alert(String(e)))
   }
 
@@ -594,9 +606,19 @@ function Workspace({
         )}
       </Card>
 
+      {libJob && !libStream.done && <JobPanel jobId={libJob} events={libStream.events} done={libStream.done} title="加入音乐库" />}
+      {libStream.done && libStream.job?.result && (
+        <Card>
+          <CardBody className="flex items-center justify-between text-xs text-zinc-400">
+            <span>已入库:<span className="text-zinc-200">{String((libStream.job.result as Record<string, unknown>).title ?? '')}</span></span>
+            <Link to="/library" className="text-emerald-400 hover:underline">去音乐库查看 →</Link>
+          </CardBody>
+        </Card>
+      )}
+
       <Card>
         <CardHeader title="工件" />
-        <CardBody className="flex flex-wrap gap-3 text-xs text-zinc-400">
+        <CardBody className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
           <a href={version.urls.audio} download className="hover:text-emerald-400">FLAC</a>
           <button
             className="hover:text-emerald-400"
@@ -611,6 +633,10 @@ function Workspace({
           <a href={version.urls.latents} download className="hover:text-emerald-400">隐变量</a>
           <a href={version.urls.semantic} download className="hover:text-emerald-400">语义 token</a>
           {cfg.abc_provided ? <span className="text-emerald-400/70">外部乐谱驱动</span> : null}
+          <span className="flex-1" />
+          <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done} onClick={addToLibrary} title="把当前版本加入音乐库(自动分析打标)">
+            {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} 加入音乐库
+          </Button>
         </CardBody>
       </Card>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { LibraryBig } from 'lucide-react'
 import { Loader2, Music4, Sparkles } from 'lucide-react'
 import { api, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
@@ -219,6 +220,8 @@ function JobPanel({
 }
 
 function ResultCard({ result, job }: { result: GenResult; job: ReturnType<typeof useJobStream>['job'] }) {
+  const [libJob, setLibJob] = useState<string | null>(null)
+  const libStream = useJobStream(libJob)
   return (
     <Card>
       <CardHeader
@@ -232,11 +235,24 @@ function ResultCard({ result, job }: { result: GenResult; job: ReturnType<typeof
       />
       <CardBody className="space-y-3">
         <AudioPlayer url={result.urls.audio} />
-        <div className="flex gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <a className="text-zinc-400 hover:text-emerald-400" href={result.urls.audio} download>下载 FLAC</a>
           <a className="text-zinc-400 hover:text-emerald-400" href={result.urls.abc} target="_blank" rel="noreferrer">查看 ABC 乐谱</a>
           {job?.error && <span className="text-red-400">{job.error}</span>}
+          <span className="flex-1" />
+          <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done}
+            onClick={() => api<{ job_id: string }>('/library/import-version', {
+              method: 'POST',
+              body: JSON.stringify({ version_id: result.version_id }),
+            }).then((r) => setLibJob(r.job_id))}
+            title="加入音乐库(自动分析打标)">
+            {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} 加入音乐库
+          </Button>
         </div>
+        {libJob && !libStream.done && <div className="text-xs text-zinc-500">正在分析入库…(MERT 特征 + 标签)</div>}
+        {libStream.done && libStream.job?.result && (
+          <div className="text-xs text-emerald-400">已加入音乐库,<Link to="/library" className="hover:underline">去查看 →</Link></div>
+        )}
       </CardBody>
     </Card>
   )

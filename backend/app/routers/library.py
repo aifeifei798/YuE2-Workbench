@@ -21,6 +21,35 @@ class ImportIn(BaseModel):
     with_transcribe: bool = False
 
 
+class ImportVersionIn(BaseModel):
+    version_id: str
+    with_transcribe: bool = False
+
+
+@router.post("/import-version", status_code=202)
+async def import_version(req: ImportVersionIn):
+    from pathlib import Path
+
+    from ..models.tables import Project, Version
+
+    db = SessionLocal()
+    try:
+        version = db.get(Version, req.version_id)
+        if version is None:
+            raise HTTPException(404, "version not found")
+        if not version.audio_path or not Path(version.audio_path).exists():
+            raise HTTPException(400, "version has no rendered audio")
+        project = db.get(Project, version.project_id)
+        title = project.title if project else Path(version.audio_path).stem
+    finally:
+        db.close()
+    job = queue.submit(
+        "library_import",
+        {"path": version.audio_path, "title": title, "with_transcribe": req.with_transcribe},
+    )
+    return {"job_id": job.id}
+
+
 class PlaylistIn(BaseModel):
     item_id: str
     n: int = 10
