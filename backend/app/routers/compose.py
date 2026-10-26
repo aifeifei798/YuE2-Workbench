@@ -48,11 +48,9 @@ async def generate(req: GenerateIn):
             if project is None:
                 raise HTTPException(404, "project not found")
         else:
-            first_line = next(
-                (ln.strip() for ln in req.lyrics.splitlines() if ln.strip() and not ln.strip().startswith(("[", "%", "V:"))),
-                "",
-            )
-            title = req.title or (first_line[:40] if first_line else "未命名")
+            title = (req.title or "").strip()
+            if not title:
+                raise HTTPException(400, "歌名必填")
             project = Project(
                 id=uid("p"),
                 title=title,

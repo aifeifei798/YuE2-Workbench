@@ -26,6 +26,7 @@ type GenResult = {
 }
 
 export function ComposePage() {
+  const [title, setTitle] = useState('')
   const [style, setStyle] = useState(
     'Jazz-funk, warm lead vocal, Rhodes piano, electric bass, tight drums',
   )
@@ -50,12 +51,16 @@ export function ComposePage() {
 
   async function submit() {
     setError(null)
+    if (!title.trim()) {
+      setError('请先给作品起个歌名')
+      return
+    }
     setSubmitting(true)
     try {
       const seed = seedText.trim() === '' ? null : Number(seedText)
       const res = await api<{ job_id: string; project_id: string }>('/generate', {
         method: 'POST',
-        body: JSON.stringify({ style, lyrics, cot, seed, cfg_scale: cfg }),
+        body: JSON.stringify({ title: title.trim(), style, lyrics, cot, seed, cfg_scale: cfg }),
       })
       setJobId(res.job_id)
     } catch (e) {
@@ -70,6 +75,15 @@ export function ComposePage() {
       <Card>
         <CardHeader title={<span className="flex items-center gap-2"><Music4 size={15} /> 新建作品</span>} desc="歌词 + 风格 → 完整歌曲(人声 + 伴奏)" />
         <CardBody className="space-y-4">
+          <div>
+            <Label hint="必填,可以重名">歌名</Label>
+            <Input
+              value={title}
+              placeholder="给这首作品起个名字"
+              maxLength={60}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
           <div>
             <Label hint="描述曲风、人声、乐器、氛围">风格</Label>
             <Textarea rows={3} value={style} onChange={(e) => setStyle(e.target.value)} />
@@ -108,7 +122,7 @@ export function ComposePage() {
             </div>
           </div>
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
-          <Button className="w-full" onClick={submit} disabled={submitting || !!jobId && !done}>
+          <Button className="w-full" onClick={submit} disabled={submitting || !!jobId && !done || !title.trim()}>
             {jobId && !done ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
             {jobId && !done ? '生成中…' : '生成歌曲'}
           </Button>
