@@ -189,6 +189,7 @@ def _version_out(v: Version) -> dict:
         urls["cover"] = f"{base}/cover.png"
     return {
         "id": v.id,
+        "project_id": v.project_id,
         "v": v.v,
         "source": v.source,
         "parent_version_id": v.parent_version_id,
