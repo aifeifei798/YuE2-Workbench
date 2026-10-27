@@ -1,10 +1,16 @@
 """Extract MERT clip embeddings for MagnaTagATune (resumable, memmap storage).
 
-Run: .venv/bin/python backend/scripts/extract_mtt_embeddings.py [--limit N]
+Dataset: confit/magnatagatune (HF) — download with hfd.sh, e.g.:
+  env -u http_proxy -u https_proxy HF_ENDPOINT=https://hf-mirror.com \
+    bash hfd.sh confit/magnatagatune --dataset --local-dir <dir> -x 8
+
+Run: .venv/bin/python backend/scripts/extract_mtt_embeddings.py \
+      [--dataset <dir>] [--limit N]
 """
 
 import csv
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,7 +19,11 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data" / "mtt_probes"
-DATASET = Path("/home/feifei/develop/models/magnatagatune")
+DATASET = Path(
+    os.environ.get("MTT_DIR")
+    or (sys.argv[sys.argv.index("--dataset") + 1] if "--dataset" in sys.argv else "")
+    or "/home/feifei/develop/models/magnatagatune"
+)
 
 sys.path.insert(0, str(ROOT / "backend"))
 

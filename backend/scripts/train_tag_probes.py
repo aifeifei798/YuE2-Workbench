@@ -1,7 +1,9 @@
 """Train per-tag logistic probes on MTT MERT embeddings.
 
-Run AFTER extract_mtt_embeddings.py finishes:
-  .venv/bin/python backend/scripts/train_tag_probes.py
+Run AFTER extract_mtt_embeddings.py finishes (same --dataset if non-default):
+  .venv/bin/python backend/scripts/train_tag_probes.py [--dataset <dir>]
+
+Output data/mtt_probes/probes.joblib — restart the backend (or use 重打标) to apply.
 """
 
 import json
@@ -12,10 +14,16 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data" / "mtt_probes"
+import os
+DATASET = Path(
+    os.environ.get("MTT_DIR")
+    or (sys.argv[sys.argv.index("--dataset") + 1] if "--dataset" in sys.argv else "")
+    or "/home/feifei/develop/models/magnatagatune"
+)
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "backend" / "scripts"))
 
-from extract_mtt_embeddings import load_annotations  # noqa: E402
+import extract_mtt_embeddings as ext  # noqa: E402
 
 # english tag → 中文 label (all present in MTT's 168 tag columns)
 TAGS = {
@@ -34,7 +42,8 @@ def main():
     from sklearn.metrics import average_precision_score
     from sklearn.model_selection import train_test_split
 
-    rows = load_annotations()
+    ext.DATASET = DATASET
+    rows = ext.load_annotations()
     emb = np.load(DATA / "embeddings.npy")
     tag_names = list(TAGS)
     keep = [i for i, (_, _, flags) in enumerate(rows) if np.abs(emb[i]).sum() > 0]
