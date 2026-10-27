@@ -301,6 +301,39 @@ def make_cover(version_id: str, req: CoverIn | None = None):
     return {"url": f"/audio/{out.relative_to(settings.data_dir)}", "seed": seed}
 
 
+@router.get("/{version_id}/export/score.pdf")
+def export_score_pdf(version_id: str, src: str = "plan"):
+    """Server-side PDF of the score (verovio + cairosvg). src=plan|transcription."""
+    from ..services import score_svc
+
+    v = _get_version(version_id)
+    vdir = _vdir(v)
+    if not vdir:
+        raise HTTPException(404, "version has no artifacts")
+    if src == "transcription":
+        abc_path = vdir / "transcription" / "score.abc"
+        out = vdir / "transcription.pdf"
+        suffix = "_转录谱.pdf"
+    else:
+        abc_path = vdir / "plan.abc"
+        out = vdir / "score.pdf"
+        suffix = "_乐谱.pdf"
+    if not abc_path.exists():
+        raise HTTPException(404, "没有可渲染的 ABC 乐谱")
+    if not out.exists() or out.stat().st_mtime < abc_path.stat().st_mtime:
+        db = SessionLocal()
+        try:
+            p = db.get(Project, v.project_id)
+            title = p.title if p else ""
+        finally:
+            db.close()
+        try:
+            score_svc.render_abc_pdf(abc_path.read_text(encoding="utf-8"), out, title=title)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    return FileResponse(out, media_type="application/pdf", filename=_download_name(v, suffix))
+
+
 @router.get("/{version_id}/export/release")
 def export_release(version_id: str):
     """Release bundle: song (flac+mp3) + cover + lyrics/lrc + abc + config."""
@@ -330,7 +363,16 @@ def export_release(version_id: str):
     ])
     (vdir / "release.txt").write_text(meta, encoding="utf-8")
 
-    parts = [vdir / "song.flac", vdir / "song.mp3", vdir / "cover.png", vdir / "release.txt", vdir / "plan.abc"]
+    score_pdf = vdir / "score.pdf"
+    if not score_pdf.exists() and (vdir / "plan.abc").exists():
+        try:
+            from ..services import score_svc
+
+            score_svc.render_abc_pdf((vdir / "plan.abc").read_text(encoding="utf-8"), score_pdf, title=title)
+        except Exception:
+            pass  # release works without the PDF
+
+    parts = [vdir / "song.flac", vdir / "song.mp3", vdir / "cover.png", vdir / "score.pdf", vdir / "release.txt", vdir / "plan.abc"]
     for extra in ("lyrics.lrc", "config.json"):
         pp = vdir / extra
         if pp.exists():

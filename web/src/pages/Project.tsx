@@ -1069,6 +1069,7 @@ function Workspace({
             <span className="text-zinc-600" title="先跑一次分轨">分轨 ZIP</span>
           )}
           <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title="整曲 + ABC + 转录 MIDI + 分轨打包">DAW 包</a>
+          <a href={`/api/versions/${version.id}/export/score.pdf`} target="_blank" rel="noreferrer" className="hover:text-emerald-400" title="服务端渲染乐谱 PDF">乐谱 PDF</a>
           {version.urls?.lrc && <a href={version.urls.lrc} download className="hover:text-emerald-400">LRC</a>}
           {detail?.has_stems && (
             <a href={`/api/versions/${version.id}/export/instrumental`} download className="hover:text-emerald-400" title="去人声伴奏(鼓+贝斯+其他混音)">伴奏</a>
