@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Disc3, Loader2, RefreshCw, Scissors } from 'lucide-react'
+import { Disc3, Loader2, RefreshCw, Scissors, Upload, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -58,12 +58,15 @@ const SLIDERS: { key: string; label: string; min: number; max: number; step: num
 
 export function MasterPage() {
   const [sp, setSp] = useSearchParams()
+  const fileRef = useRef<HTMLInputElement>(null)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [presets, setPresets] = useState<PresetsOut | null>(null)
   const [projectId, setProjectId] = useState('')
   const [versions, setVersions] = useState<VersionRow[]>([])
   const [versionId, setVersionId] = useState('')
   const [detail, setDetail] = useState<VersionDetail | null>(null)
+  const [upload, setUpload] = useState<{ path: string; filename: string; url: string; duration: number } | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const [preset, setPreset] = useState<string>(CUSTOM)
   const [params, setParams] = useState<Record<string, number>>({})
@@ -110,6 +113,39 @@ export function MasterPage() {
     }).catch((e) => setError(String(e)))
   }, [])
 
+  // ---- 上传本地歌曲(path 模式) ----
+  function readDuration(url: string): Promise<number> {
+    return new Promise((resolve) => {
+      const a = new Audio()
+      a.preload = 'metadata'
+      a.onloadedmetadata = () => resolve(isFinite(a.duration) ? a.duration : 0)
+      a.onerror = () => resolve(0)
+      a.src = url
+    })
+  }
+
+  async function pickFile(f: File | null) {
+    if (!f) return
+    setError(null)
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const up = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (!up.ok) throw new Error(`${up.status} ${await up.text()}`)
+      const meta = (await up.json()) as { path: string; url: string; filename: string }
+      const duration = await readDuration(meta.url)
+      setUpload({ path: meta.path, url: meta.url, filename: meta.filename ?? f.name, duration })
+      setVersionId('')
+      setDetail(null)
+      setExportJob(null)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   // 深链 ?v=<version_id>
   useEffect(() => {
     const want = sp.get('v')
@@ -133,6 +169,16 @@ export function MasterPage() {
     api<VersionDetail>(`/versions/${versionId}`).then((d) => setDetail(d))
   }, [versionId])
 
+  // 上传切换时清掉旧预览(自动预览由下方 source effect 接管)
+  useEffect(() => {
+    setPreview(null)
+    setPreviewDirty(false)
+  }, [upload?.path])
+
+  const hasSource = !!(detail || upload)
+  const activeDuration = upload ? upload.duration : detail?.duration ?? 0
+  const needsStems = detail ? !detail.has_stems : preview?.mode === 'mix_only'
+
   // ---- 预览 ----
   const renderPreview = useCallback(
     async (rg?: [number, number]) => {
@@ -143,7 +189,8 @@ export function MasterPage() {
         const res = await api<PreviewOut>('/master/preview', {
           method: 'POST',
           body: JSON.stringify({
-            version_id: versionId,
+            version_id: upload ? undefined : versionId || undefined,
+            path: upload?.path,
             region: rg ?? region,
             preset: preset === CUSTOM ? null : preset,
             overrides: params,
@@ -157,20 +204,20 @@ export function MasterPage() {
         setPreviewLoading(false)
       }
     },
-    [versionId, presets, region, preset, params],
+    [versionId, upload, presets, region, preset, params],
   )
   renderPreviewRef.current = renderPreview
 
-  // 选定版本(且预设就绪)后:定位中间 15s 并自动预览一次
+  // 选定来源(版本或上传,且预设就绪)后:定位中间 15s 并自动预览一次
   useEffect(() => {
-    if (!detail || !presets) return
-    const dur = detail.duration ?? 0
+    if ((!detail && !upload) || !presets) return
+    const dur = activeDuration
     const mid = dur / 2
-    const rg: [number, number] = [Math.max(0, mid - 7.5), Math.max(15, Math.min(dur, mid + 7.5))]
+    const rg: [number, number] = [Math.max(0, mid - 7.5), Math.max(15, Math.min(dur || 15, mid + 7.5))]
     setRegion(rg)
     renderPreviewRef.current(rg)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.id, presets])
+  }, [detail?.id, upload?.path, upload?.duration, presets])
 
   function updateParam(key: string, value: number) {
     setParams((p) => ({ ...p, [key]: value }))
@@ -214,9 +261,12 @@ export function MasterPage() {
 
   // ---- 分轨 / 导出 ----
   async function runStems() {
-    if (!versionId) return
+    if (!versionId && !upload) return
     try {
-      const r = await api<{ job_id: string }>('/stems', { method: 'POST', body: JSON.stringify({ version_id: versionId }) })
+      const r = await api<{ job_id: string }>('/stems', {
+        method: 'POST',
+        body: JSON.stringify(upload ? { path: upload.path } : { version_id: versionId }),
+      })
       setStemsJob(r.job_id)
     } catch (e) {
       setError(String(e))
@@ -225,24 +275,40 @@ export function MasterPage() {
   useEffect(() => {
     if (stemsStream.done && stemsJob) {
       setStemsJob(null)
-      api<VersionDetail>(`/versions/${versionId}`).then(setDetail)
+      // 分轨完成:版本刷新 has_stems;上传直接重渲染预览(新分轨进入缓存键)
+      if (upload) renderPreviewRef.current()
+      else if (versionId) api<VersionDetail>(`/versions/${versionId}`).then(setDetail)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stemsStream.done])
 
   async function exportMaster() {
-    if (!versionId) return
+    if (!versionId && !upload) return
     setError(null)
     try {
-      const r = await api<{ job_id: string }>('/master', {
-        method: 'POST',
-        body: JSON.stringify({
-          version_id: versionId,
-          preset: preset === CUSTOM ? null : preset,
-          overrides: params,
-          note: note.trim() || undefined,
-        }),
-      })
+      const presetPart = {
+        preset: preset === CUSTOM ? null : preset,
+        overrides: params,
+        note: note.trim() || undefined,
+      }
+      let body: Record<string, unknown>
+      if (upload) {
+        // path 模式:挂到已选项目;没选就按文件名自动建一个,母带照常落成新版本
+        let pid = projectId
+        if (!pid) {
+          const created = await api<{ id: string }>('/projects', {
+            method: 'POST',
+            body: JSON.stringify({ title: upload.filename.replace(/\.[^.]+$/, '').slice(0, 60) || '上传母带' }),
+          })
+          pid = created.id
+          api<ProjectSummary[]>('/projects').then(setProjects)
+          loadProject(pid)
+        }
+        body = { path: upload.path, project_id: pid, ...presetPart }
+      } else {
+        body = { version_id: versionId, ...presetPart }
+      }
+      const r = await api<{ job_id: string }>('/master', { method: 'POST', body: JSON.stringify(body) })
       setExportJob(r.job_id)
     } catch (e) {
       setError(String(e))
@@ -262,29 +328,55 @@ export function MasterPage() {
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Disc3 size={15} /> 母带处理</span>}
-          desc="借鉴 BSV 修复链:去削波 → 人声/配乐分别 EQ·齿音·压缩·闪避·加厚 → 限制器 → 响度归一"
+          desc="借鉴 BSV 修复链:去削波 → 人声/配乐分别 EQ·齿音·压缩·闪避·加厚 → 限制器 → 响度归一;可选项目版本或直接上传歌曲"
         />
-        <CardBody className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label>项目</Label>
-            <Select aria-label="选择项目" value={projectId} onChange={(e) => { setVersionId(''); loadProject(e.target.value) }}>
-              <option value="">选择项目…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label hint={detail ? (detail.has_stems ? '已有分轨' : '未分轨(整轨打磨模式)') : undefined}>版本</Label>
-            <Select aria-label="选择版本" value={versionId} onChange={(e) => setVersionId(e.target.value)}>
-              <option value="">选择版本…</option>
-              {versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  v{String(v.v).padStart(2, '0')} · {v.note || v.source} · {v.duration ? `${Math.round(v.duration)}s` : '?'}
-                  {v.source === 'master' ? ' · 母带' : ''}
-                </option>
-              ))}
-            </Select>
+        <CardBody className="space-y-3">
+          <input ref={fileRef} type="file" accept="audio/*" aria-label="上传歌曲文件" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; pickFile(f) }} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 py-4 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200 disabled:opacity-50"
+          >
+            {uploading ? <Loader2 className="animate-spin" size={17} /> : <Upload size={17} />}
+            {uploading
+              ? '上传中…'
+              : upload
+                ? <span className="flex items-center gap-2 text-zinc-200">
+                    {upload.filename} · {upload.duration > 0 ? `${Math.round(upload.duration)}s` : '时长未知'}
+                    <span
+                      role="button"
+                      aria-label="清除上传"
+                      title="清除上传"
+                      className="rounded p-0.5 hover:bg-zinc-800"
+                      onClick={(e) => { e.stopPropagation(); setUpload(null) }}
+                    >
+                      <X size={13} />
+                    </span>
+                  </span>
+                : '上传本地歌曲母带(mp3 / wav / flac …,或选择下方项目版本)'}
+          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label hint="上传的文件导出时自动按文件名建项目">项目</Label>
+              <Select aria-label="选择项目" value={projectId} onChange={(e) => { setVersionId(''); setUpload(null); loadProject(e.target.value) }}>
+                <option value="">选择项目…</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label hint={detail ? (detail.has_stems ? '已有分轨' : '未分轨(整轨打磨模式)') : undefined}>版本</Label>
+              <Select aria-label="选择版本" value={versionId} onChange={(e) => { setUpload(null); setVersionId(e.target.value) }}>
+                <option value="">选择版本…</option>
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    v{String(v.v).padStart(2, '0')} · {v.note || v.source} · {v.duration ? `${Math.round(v.duration)}s` : '?'}
+                    {v.source === 'master' ? ' · 母带' : ''}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </CardBody>
       </Card>
@@ -293,15 +385,21 @@ export function MasterPage() {
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
       )}
 
-      {detail && (
+      {hasSource && (
         <>
           {/* 预设与参数 */}
           <Card>
             <CardHeader
               title="预设与参数"
-              desc={detail.has_stems ? '分轨可用:人声链 + 配乐链分别处理' : '没有分轨:整轨打磨模式(先跑分轨效果更好)'}
+              desc={
+                detail
+                  ? detail.has_stems
+                    ? '分轨可用:人声链 + 配乐链分别处理'
+                    : '没有分轨:整轨打磨模式(先跑分轨效果更好)'
+                  : '上传文件:没有分轨时先整轨打磨,点"分轨"跑一次效果更好'
+              }
               right={
-                !detail.has_stems && (
+                needsStems && (
                   <Button size="sm" variant="outline" onClick={runStems} disabled={!!stemsJob}>
                     {stemsJob ? <Loader2 className="animate-spin" size={13} /> : <Scissors size={13} />} 分轨
                   </Button>
@@ -373,14 +471,14 @@ export function MasterPage() {
                 </div>
                 <Button variant="outline" size="sm" className="h-10"
                   onClick={() => {
-                    const dur = detail.duration ?? 0
+                    const dur = activeDuration
                     const mid = dur / 2
-                    const rg: [number, number] = [Math.max(0, mid - 7.5), Math.max(15, Math.min(dur, mid + 7.5))]
+                    const rg: [number, number] = [Math.max(0, mid - 7.5), Math.max(15, Math.min(dur || 15, mid + 7.5))]
                     setRegion(rg)
                     renderPreview(rg)
                   }}
                 >中间 15s</Button>
-                <Button size="sm" className="h-10" onClick={() => renderPreview()} disabled={previewLoading || !versionId}>
+                <Button size="sm" className="h-10" onClick={() => renderPreview()} disabled={previewLoading || (!versionId && !upload)}>
                   {previewLoading ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                   渲染预览
                 </Button>
@@ -429,7 +527,11 @@ export function MasterPage() {
           <Card>
             <CardHeader
               title="导出母带"
-              desc="整曲渲染后落成新版本(source=master),乐谱 / 隐变量 / 歌词全部继承,可直接进排行榜与盲听"
+              desc={
+                upload
+                  ? '整曲渲染后落成新版本:未选项目时按文件名自动创建;项目版本则乐谱 / 隐变量 / 歌词全部继承'
+                  : '整曲渲染后落成新版本(source=master),乐谱 / 隐变量 / 歌词全部继承,可直接进排行榜与盲听'
+              }
             />
             <CardBody className="space-y-3">
               <div className="flex flex-wrap items-end gap-3">
@@ -437,7 +539,7 @@ export function MasterPage() {
                   <Label>版本备注</Label>
                   <Input aria-label="版本备注" value={note} placeholder={`母带 (${preset === CUSTOM ? '自定义' : preset})`} onChange={(e) => setNote(e.target.value)} />
                 </div>
-                <Button onClick={exportMaster} disabled={!versionId || !!exportJob}>
+                <Button onClick={exportMaster} disabled={!hasSource || !!exportJob}>
                   {exportJob ? <Loader2 className="animate-spin" size={14} /> : <Disc3 size={14} />} 生成母带版本
                 </Button>
               </div>

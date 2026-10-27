@@ -3,6 +3,9 @@ import { Badge, Card, CardBody, CardHeader, Progress } from './ui'
 
 const STAGE_LABEL: Record<string, string> = {
   load_model: '加载模型',
+  load: '加载音频',
+  render: '母带渲染',
+  export: '导出文件',
   plan: '规划乐谱 (ABC)',
   semantic: '生成歌曲 token',
   nar: '合成音频隐变量',
