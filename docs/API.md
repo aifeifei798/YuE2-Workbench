@@ -145,6 +145,11 @@
 - `POST /api/duel {a,b}`(同步,要求两版均已评测)
 - `GET /api/models`、`POST /api/models/{name}/load`(任务)/`unload`(同步);前端新增"系统"页
 - `DELETE /api/jobs/{id}`(仅限终态任务)
+- `GET /api/versions/{id}/export/score.pdf?src=plan|transcription`(服务端 verovio+cairosvg 渲染乐谱 PDF,多页自动合并)
+- `GET /api/versions/{id}/export/instrumental`(分轨混音去人声伴奏)、`POST /api/versions/{id}/cover`(程序化封面)、`GET /api/versions/{id}/export/release`(发布包:flac+mp3+封面+乐谱PDF+歌词/LRC+ABC)
+- `GET /api/blind/pair`、`POST /api/blind/vote`、`GET /api/blind/stats`(盲测投票 + ELO)
+- `POST /api/generate/sweep`(种子扫描批量变体)、`POST /api/jobs/{id}/retry`(失败任务重试)
+- `GET /api/lyrics {version_id}`(带时间戳歌词对齐,参考歌词模糊对齐,落盘 lyrics.lrc)
 
 ## 变体实现(设计等价,非缺口)
 
@@ -154,6 +159,5 @@
 
 ## 明确挂账
 
-- `POST /api/score/render`(服务端 PDF/钢琴音频渲染):SheetSage2 渲染栈基于 Playwright 无头浏览器,需为后端引入浏览器依赖;查看用客户端 abcjs 已覆盖,PDF 可用浏览器打印。待评估后单独排期。
 - Admin/鉴权体系(ADMIN_TOKEN、队列管理页、限流):单机自用暂缺,公网部署前必须补,连同 Docker 一起排期。
 - MERT 流派/情绪探针打标:现为启发式规则;真探针需下载 MagnaTagATune/EmoMusic 训练,单独排期。
