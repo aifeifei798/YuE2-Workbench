@@ -197,7 +197,7 @@ fi
 # ---------- 模型下载(可选) ----------
 if [[ "$DO_MODELS" == 1 ]]; then
   section "模型下载(约 15GB,HF 缓存)"
-  for repo in m-a-p/YuE2-3B m-a-p/YuE2-Vae m-a-p/SheetSage2 m-a-p/MERT-v2-FullSong adefossez/HTDemucs-ft Qwen/Qwen3-ASR-0.6B Qwen/Qwen3-0.6B; do
+  for repo in m-a-p/YuE2-3B m-a-p/YuE2-Vae m-a-p/SheetSage2 m-a-p/MERT-v2-FullSong adefossez/HTDemucs-ft Qwen/Qwen3-ASR-0.6B Qwen/Qwen3-ForcedAligner-0.6B Qwen/Qwen3-0.6B; do
     echo "  … $repo"
     $PY -c "from huggingface_hub import snapshot_download; snapshot_download('$repo', max_workers=4)" || warn "$repo 下载失败(可重跑本步骤续传)"
   done

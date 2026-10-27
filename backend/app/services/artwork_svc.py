@@ -5,7 +5,10 @@ import hashlib
 
 import numpy as np
 
+from ..core.config import ROOT
+
 FONT_CANDIDATES = [
+    (str(ROOT / "assets" / "fonts" / "yanbo-song-bold.ttf"), {}),
     ("/home/feifei/.fonts/猫啃网烟波宋-B.ttf", {}),
     ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", {"index": 2}),
     ("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", {}),

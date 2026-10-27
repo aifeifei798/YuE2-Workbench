@@ -3,8 +3,9 @@ os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-SRC = "/home/feifei/develop/app/YuE2-Workbench/data/projects/p_35663ba10d97/v01/song.flac"
-OUT = "/home/feifei/develop/app/YuE2-Workbench/smoke/out"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "projects")
+OUT = os.environ.get("SMOKE_OUT", os.path.join(ROOT, "smoke", "out"))
 
 def step(name, fn):
     print(f"===== {name} =====", flush=True)
