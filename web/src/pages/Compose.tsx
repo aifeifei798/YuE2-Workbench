@@ -157,11 +157,11 @@ export function ComposePage() {
   }
 
   return (
-    <Page>
-      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
-      <Card>
+    <Page className="lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[400px_1fr]">
+      <Card className="lg:flex lg:min-h-0 lg:flex-col">
         <CardHeader title={<span className="flex items-center gap-2"><Music4 size={15} /> 新建作品</span>} desc="歌词 + 风格 → 完整歌曲(人声 + 伴奏)" />
-        <CardBody className="space-y-4">
+        <CardBody className="space-y-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-y-auto">
           <div>
             <Label hint="必填,可以重名">歌名</Label>
             <Input
@@ -171,12 +171,12 @@ export function ComposePage() {
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
-          <div>
+          <div className="shrink-0">
             <div className="mb-1.5 flex items-center gap-2">
               <span className="text-xs font-medium text-zinc-300">风格</span>
               <span className="flex-1" />
               <SelectMenu
-                className="w-40"
+                className="w-36 shrink-0"
                 value=""
                 onChange={(v) => {
                   const p = presets.find((x) => x.label === v)
@@ -197,16 +197,16 @@ export function ComposePage() {
                 存为预设
               </button>
             </div>
-            <Textarea rows={3} value={style} onChange={(e) => setStyle(e.target.value)} />
+            <Textarea rows={2} value={style} onChange={(e) => setStyle(e.target.value)} />
             {refInfo && <div className="mt-1 text-[11px] text-emerald-400/80">{refInfo}</div>}
           </div>
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
+          <div className="flex min-h-40 flex-1 flex-col">
+            <div className="mb-1.5 flex shrink-0 items-baseline justify-between">
               <span className="text-xs font-medium text-zinc-300">歌词</span>
               <span className="text-[11px] text-zinc-500">[Verse] [Chorus] 等段落标记</span>
             </div>
-            <Textarea rows={9} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="font-mono text-[13px]" />
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <Textarea rows={4} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="min-h-0 flex-1 resize-none font-mono text-[13px]" />
+            <div className="mt-1.5 flex shrink-0 flex-wrap items-center gap-1.5 text-[11px]">
               <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400">段落 {lyricDiag.sections}</span>
               <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400">歌词行 {lyricDiag.body}</span>
               {lyricDiag.issues.map((msg) => (
@@ -219,7 +219,7 @@ export function ComposePage() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid shrink-0 grid-cols-3 gap-3">
             <div>
               <Label>规划模式</Label>
               <SelectMenu
@@ -250,7 +250,7 @@ export function ComposePage() {
             </div>
           </div>
           {sweepMode && (
-            <div>
+            <div className="shrink-0">
               <Label hint="同表单跑 N 个随机 seed,串行生成">变体数量</Label>
               <SelectMenu
                 value={String(sweepCount)}
@@ -259,7 +259,9 @@ export function ComposePage() {
               />
             </div>
           )}
-          {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+          {error && <div className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+        </CardBody>
+        <div className="shrink-0 space-y-3 border-t border-zinc-800 p-4">
           <Button className="w-full" onClick={submit} disabled={submitting || !!jobId && !done || !!sweepJobIds && !sweepSettled || !title.trim()}>
             {jobId && !done || !!sweepJobIds && !sweepSettled ? <Loader2 className="animate-spin" size={15} /> : sweepMode ? <Layers size={15} /> : <Sparkles size={15} />}
             {jobId && !done ? '生成中…' : sweepMode ? `批量生成 ${sweepCount} 个变体` : '生成歌曲'}
@@ -274,10 +276,10 @@ export function ComposePage() {
             />
             种子扫描模式(同词同曲风,多个 seed 出变体,跑完可自动评测对比)
           </label>
-        </CardBody>
+        </div>
       </Card>
 
-      <div className="space-y-5">
+      <div className="space-y-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
         {sweepJobIds && (
           <SweepPanel
             jobIds={sweepJobIds}
