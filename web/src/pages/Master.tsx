@@ -490,7 +490,7 @@ export function MasterPage() {
                     onChange={(e) => setRegion([region[0], Number(e.target.value) || 0])}
                   />
                 </div>
-                <Button variant="outline" size="sm" className="h-10"
+                <Button variant="outline" size="sm" className="h-9"
                   onClick={() => {
                     const dur = activeDuration
                     const mid = dur / 2
@@ -499,7 +499,7 @@ export function MasterPage() {
                     renderPreview(rg)
                   }}
                 >中间 15s</Button>
-                <Button size="sm" className="h-10" onClick={() => renderPreview()} disabled={previewLoading || (!versionId && !upload)}>
+                <Button size="sm" className="h-9" onClick={() => renderPreview()} disabled={previewLoading || (!versionId && !upload)}>
                   {previewLoading ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                   渲染预览
                 </Button>

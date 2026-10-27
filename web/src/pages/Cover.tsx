@@ -244,13 +244,13 @@ export function CoverPage() {
                   </Select>
                 </div>
                 <Button
-                  variant="outline" size="sm" className="h-10" disabled={!!prepareJob && !prepDone || !pickedUpload}
+                  variant="outline" size="sm" className="h-9" disabled={!!prepareJob && !prepDone || !pickedUpload}
                   onClick={() => pickedUpload && reuseUpload(pickedUpload)} title="对这个素材重新跑一次分析"
                 >
                   重新分析
                 </Button>
                 <Button
-                  variant="ghost" size="sm" className="h-10 text-zinc-500 hover:text-red-400" disabled={!!prepareJob && !prepDone || !activeCoverId}
+                  variant="ghost" size="sm" className="h-9 text-zinc-500 hover:text-red-400" disabled={!!prepareJob && !prepDone || !activeCoverId}
                   onClick={deleteCover} title="删除当前显示的翻唱版本(不提供找回)"
                 >
                   删除此版本

@@ -185,7 +185,7 @@ export function TranscribePage() {
                   ))}
                 </Select>
                 <Button
-                  variant="ghost" size="sm" className="h-10 w-10 shrink-0 p-0 text-zinc-500 hover:text-red-400"
+                  variant="ghost" size="sm" className="h-9 w-9 shrink-0 p-0 text-zinc-500 hover:text-red-400"
                   title="删除当前显示的版本(不提供找回)" disabled={busy || restoring}
                   onClick={() => shownRunId && deleteRun(shownRunId)}
                 >

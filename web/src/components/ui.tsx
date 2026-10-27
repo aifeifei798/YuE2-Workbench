@@ -16,7 +16,7 @@ export function Button({ variant = 'default', size = 'md', className, ...props }
     <button
       className={cn(
         'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
-        size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm',
+        size === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-9 px-4 text-[13px]',
         variant === 'default' && 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400',
         variant === 'outline' && 'border border-zinc-700 bg-transparent text-zinc-100 hover:bg-zinc-800',
         variant === 'ghost' && 'bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100',
@@ -56,7 +56,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none',
+        'h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[13px] text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none',
         className,
       )}
       {...props}
@@ -68,7 +68,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cn(
-        'w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none',
+        'w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-[13px] leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none',
         className,
       )}
       {...props}
@@ -80,7 +80,7 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
   return (
     <select
       className={cn(
-        'h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none',
+        'h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[13px] text-zinc-100 focus:border-emerald-500 focus:outline-none',
         className,
       )}
       {...props}

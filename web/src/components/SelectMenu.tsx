@@ -41,7 +41,7 @@ export function SelectMenu({
       <button
         type="button"
         onClick={() => setOpen((s) => !s)}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 hover:border-zinc-600 focus:border-emerald-500 focus:outline-none"
+        className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[13px] text-zinc-100 hover:border-zinc-600 focus:border-emerald-500 focus:outline-none"
       >
         <span className="truncate">{current?.label ?? value}</span>
         <ChevronDown size={14} className={cn('shrink-0 text-zinc-500 transition-transform', open && 'rotate-180')} />
