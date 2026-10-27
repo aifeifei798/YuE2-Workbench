@@ -4,7 +4,7 @@ import { Gauge, Loader2, RefreshCw, Trophy } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
-import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
 type Row = {
   version_id: string
@@ -44,23 +44,27 @@ export function LeaderboardPage() {
   const pending = rows.filter((r) => !r.metrics).length
 
   return (
-    <div className="mx-auto max-w-6xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">评测排行榜</h1>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={refresh}><RefreshCw size={13} /> 刷新</Button>
-          <Button
-            size="sm"
-            disabled={pending === 0 || (!!jobId && !done)}
-            onClick={() => api<{ job_id: string }>('/evaluate/batch?limit=8', { method: 'POST' }).then((r) => setJobId(r.job_id)).catch((e) => alert(String(e)))}
-          >
-            {jobId && !done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />}
-            评测缺失版本{pending > 0 ? `(${pending})` : ''}
-          </Button>
-        </div>
-      </div>
+    <Page>
+      <Card>
+        <CardHeader
+          title="评测排行榜"
+          right={
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={refresh}><RefreshCw size={13} /> 刷新</Button>
+              <Button
+                size="sm"
+                disabled={pending === 0 || (!!jobId && !done)}
+                onClick={() => api<{ job_id: string }>('/evaluate/batch?limit=8', { method: 'POST' }).then((r) => setJobId(r.job_id)).catch((e) => alert(String(e)))}
+              >
+                {jobId && !done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />}
+                评测缺失版本{pending > 0 ? `(${pending})` : ''}
+              </Button>
+            </div>
+          }
+        />
+      </Card>
 
-      {jobId && !done && <div className="mb-4"><JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} /></div>}
+      {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} />}
 
       <Card>
         <CardHeader
@@ -107,6 +111,6 @@ export function LeaderboardPage() {
           )}
         </CardBody>
       </Card>
-    </div>
+    </Page>
   )
 }

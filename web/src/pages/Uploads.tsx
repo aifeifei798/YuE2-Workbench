@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Disc3, FileAudio, Loader2, Mic2, Package, Play, Trash2, Upload, X } from 'lucide-react'
 import { api, type UploadAsset } from '@/lib/api'
 import { fmtDur } from '@/components/UploadPicker'
-import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
 function fmtSize(n: number) {
   return n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`
@@ -93,7 +93,7 @@ export function UploadsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-5">
+    <Page>
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Package size={15} /> 上传素材</span>}
@@ -175,6 +175,6 @@ export function UploadsPage() {
           <audio key={playing.id} src={playing.url ?? ''} controls autoPlay className="w-full" />
         </div>
       )}
-    </div>
+    </Page>
   )
 }

@@ -5,7 +5,7 @@ import { api, type UploadAsset } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { UploadPicker } from '@/components/UploadPicker'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Page, Select } from '@/components/ui'
 
 type ProjectSummary = { id: string; title: string }
 type VersionRow = {
@@ -343,7 +343,7 @@ export function MasterPage() {
   const fmt = (v: number | null | undefined, digits = 1) => (v == null ? '—' : v.toFixed(digits))
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-5">
+    <Page>
       {/* 源选择 */}
       <Card>
         <CardHeader
@@ -584,7 +584,7 @@ export function MasterPage() {
           </Card>
         </>
       )}
-    </div>
+    </Page>
   )
 }
 

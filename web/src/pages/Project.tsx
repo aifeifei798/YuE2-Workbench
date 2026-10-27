@@ -7,7 +7,7 @@ import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { WaveRegionsPlayer, type WaveRegionsHandle } from '@/components/WaveRegionsPlayer'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Page, Textarea } from '@/components/ui'
 import { SelectMenu } from '@/components/SelectMenu'
 
 type PunchCandidate = { idx: number; seed: number; audition_url: string }
@@ -105,8 +105,8 @@ export function ProjectPage() {
   if (!project) return <div className="p-8 text-sm text-zinc-500">加载中…</div>
 
   return (
-    <div className="mx-auto max-w-6xl p-5">
-      <div className="mb-4 flex items-center gap-3">
+    <Page>
+      <div className="flex items-center gap-3">
         <Link to="/projects" className="text-zinc-500 hover:text-zinc-200"><ChevronLeft size={18} /></Link>
         <div className="min-w-0 flex-1">
           {editingTitle ? (
@@ -144,7 +144,7 @@ export function ProjectPage() {
         <VersionList project={project} selected={selected} onSelect={selectVersion} />
         <Workspace project={project} version={selected} onRefresh={load} onSelect={selectVersion} />
       </div>
-    </div>
+    </Page>
   )
 }
 
@@ -990,7 +990,7 @@ function Workspace({
 
       <Card>
         <CardHeader
-          title={<span className="flex items-center gap-2"><Bot size={14} /> AI 改谱</span>}
+          title={<span className="flex items-center gap-2"><Bot size={15} /> AI 改谱</span>}
           desc="自然语言指令 → 工具化改谱(移调/爵士和声/变速)→ diff 人审 → 重渲染"
           right={<button className="text-xs text-zinc-400 hover:text-emerald-400" onClick={() => setShowAgent((s) => !s)}>{showAgent ? '收起' : '展开'}</button>}
         />

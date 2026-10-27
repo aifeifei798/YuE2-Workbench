@@ -5,7 +5,7 @@ import { Loader2, Music4, Sparkles } from 'lucide-react'
 import { api, TERMINAL, type Job, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { AudioPlayer } from '@/components/AudioPlayer'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Progress, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Page, Progress, Textarea } from '@/components/ui'
 import { SelectMenu } from '@/components/SelectMenu'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -157,7 +157,8 @@ export function ComposePage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5 p-5 lg:grid-cols-[420px_1fr]">
+    <Page>
+      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
       <Card>
         <CardHeader title={<span className="flex items-center gap-2"><Music4 size={15} /> 新建作品</span>} desc="歌词 + 风格 → 完整歌曲(人声 + 伴奏)" />
         <CardBody className="space-y-4">
@@ -293,6 +294,7 @@ export function ComposePage() {
         {done && result && <ResultCard result={result as GenResult} job={job} />}
       </div>
     </div>
+    </Page>
   )
 }
 

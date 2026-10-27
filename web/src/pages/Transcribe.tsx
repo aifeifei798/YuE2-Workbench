@@ -6,7 +6,7 @@ import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { UploadPicker } from '@/components/UploadPicker'
-import { Button, Card, CardBody, CardHeader, Label, Select } from '@/components/ui'
+import { Button, Card, CardBody, CardHeader, Label, Page, Select } from '@/components/ui'
 
 type TranscribeResult = {
   abc: string
@@ -158,7 +158,8 @@ export function TranscribePage() {
   const shownRunId = restoredRun || runs[0]?.run_id || ''
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-5 p-5 lg:grid-cols-[380px_1fr]">
+    <Page>
+      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
       <Card>
         <CardHeader title={<span className="flex items-center gap-2"><FileAudio size={15} /> 自动扒谱</span>} desc="歌曲 → 主旋律 + 和弦 + 节拍 + 调性" />
         <CardBody className="space-y-4">
@@ -255,5 +256,6 @@ export function TranscribePage() {
         )}
       </div>
     </div>
+    </Page>
   )
 }

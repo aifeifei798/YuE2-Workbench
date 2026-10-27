@@ -1,6 +1,11 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/job'
 
+/** 全站统一页面容器:所有页面同一宽度(6xl)、同一垂直节奏(space-y-5)。 */
+export function Page({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('mx-auto w-full max-w-6xl space-y-5 p-5', className)}>{children}</div>
+}
+
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'default' | 'outline' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
@@ -96,7 +101,7 @@ export function Progress({ value, className }: { value?: number | null; classNam
   return (
     <div className={cn('h-1.5 w-full overflow-hidden rounded-full bg-zinc-800', className)}>
       <div
-        className={cn('h-full rounded-full bg-emerald-500 transition-all', value == null && 'animate-pulse w-1/3')}
+        className={cn('h-full rounded-full bg-emerald-500 transition-[width]', value == null && 'animate-pulse w-1/3')}
         style={value != null ? { width: `${Math.min(100, value)}%` } : undefined}
       />
     </div>

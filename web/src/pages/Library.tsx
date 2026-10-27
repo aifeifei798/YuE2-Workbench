@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GitCompare, Loader2, ListMusic, RotateCcw, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
+import { GitCompare, LibraryBig, Loader2, ListMusic, RotateCcw, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
 import { api, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { AudioPlayer } from '@/components/AudioPlayer'
-import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
 type DedupReport = { compared: number; pairs: { a: LibItem; b: LibItem; similarity: number }[] }
 
@@ -106,26 +106,31 @@ export function LibraryPage() {
   const visible = tagFilter ? items.filter((it) => it.tags.includes(tagFilter)) : items
 
   return (
-    <div className="mx-auto max-w-6xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">音乐库</h1>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-zinc-400">
-            <input type="checkbox" checked={withTranscribe} onChange={(e) => setWithTranscribe(e.target.checked)} className="accent-emerald-500" />
-            导入时同时扒谱(调性/速度)
-          </label>
-          <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
-          <Button size="sm" variant="outline" title="成对相似度报告,高相似对即疑似翻唱/重复"
-            onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup).catch((e) => alert(String(e)))}>
-            <GitCompare size={13} /> 查重
-          </Button>
-          <Button size="sm" disabled={busy === 'upload' || importing} onClick={() => fileRef.current?.click()}>
-            {busy === 'upload' || importing ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />} 导入歌曲
-          </Button>
-        </div>
-      </div>
+    <Page>
+      <Card>
+        <CardHeader
+          title={<span className="flex items-center gap-2"><LibraryBig size={15} /> 音乐库</span>}
+          desc="MERT 打标 · 相似检索 · 歌单 · 翻唱查重"
+          right={
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-zinc-400">
+                <input type="checkbox" aria-label="导入时同时扒谱" checked={withTranscribe} onChange={(e) => setWithTranscribe(e.target.checked)} className="accent-emerald-500" />
+                导入时同时扒谱(调性/速度)
+              </label>
+              <input ref={fileRef} type="file" accept="audio/*" aria-label="导入歌曲文件" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
+              <Button size="sm" variant="outline" title="成对相似度报告,高相似对即疑似翻唱/重复"
+                onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup).catch((e) => alert(String(e)))}>
+                <GitCompare size={13} /> 查重
+              </Button>
+              <Button size="sm" disabled={busy === 'upload' || importing} onClick={() => fileRef.current?.click()}>
+                {busy === 'upload' || importing ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />} 导入歌曲
+              </Button>
+            </div>
+          }
+        />
+      </Card>
 
-      {importing && <div className="mb-4"><JobPanel jobId={jobId!} events={events} done={done} title="导入分析" failedNote={latestEvent?.detail} /></div>}
+      {importing && <JobPanel jobId={jobId!} events={events} done={done} title="导入分析" failedNote={latestEvent?.detail} />}
 
       {loading && <div className="text-sm text-zinc-500">加载中…</div>}
       {!loading && items.length === 0 && (
@@ -133,7 +138,7 @@ export function LibraryPage() {
       )}
 
       {allTags.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-zinc-500">标签:</span>
           <button onClick={() => setTagFilter(null)} className={`rounded-full border px-2.5 py-1 ${!tagFilter ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>全部</button>
           {allTags.map((t) => (
@@ -184,7 +189,7 @@ export function LibraryPage() {
       </div>
 
       {dedup && (
-        <Card className="mt-5">
+        <Card>
           <CardHeader
             title={`翻唱/重复检测(${dedup.compared} 首,阈值 0.85)`}
             right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setDedup(null)}>收起</button>}
@@ -202,7 +207,7 @@ export function LibraryPage() {
       )}
 
       {similarOf && (
-        <Card className="mt-5">
+        <Card>
           <CardHeader title={`与「${similarOf.item.title}」相似`} right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setSimilarOf(null)}>收起</button>} />
           <CardBody className="space-y-1">
             {similarOf.rows.length === 0 && <div className="text-xs text-zinc-500">库里没有可比对的其它歌曲</div>}
@@ -217,9 +222,9 @@ export function LibraryPage() {
       )}
 
       {playlist && (
-        <Card className="mt-5">
+        <Card>
           <CardHeader
-            title={<span className="flex items-center gap-2"><Sparkles size={14} className="text-emerald-400" /> 生成的歌单(相似 + 多样性)</span>}
+            title={<span className="flex items-center gap-2"><Sparkles size={15} className="text-emerald-400" /> 生成的歌单(相似 + 多样性)</span>}
             right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setPlaylist(null)}>收起</button>}
           />
           <CardBody className="space-y-1">
@@ -233,6 +238,6 @@ export function LibraryPage() {
           </CardBody>
         </Card>
       )}
-    </div>
+    </Page>
   )
 }

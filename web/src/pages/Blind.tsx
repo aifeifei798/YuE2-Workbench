@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Ear, RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { AudioPlayer } from '@/components/AudioPlayer'
-import { Button, Card, CardBody, CardHeader } from '@/components/ui'
+import { Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
 type Pair = { a: { version_id: string; url: string }; b: { version_id: string; url: string } }
 type Stats = {
@@ -56,13 +56,14 @@ export function BlindPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <Ear size={18} className="text-emerald-400" /> 盲听对决
-        </h1>
-        <span className="text-xs text-zinc-500">累计 {stats?.votes ?? 0} 票 · 数据只属于你的耳朵</span>
-      </div>
+    <Page>
+      <Card>
+        <CardHeader
+          title={<span className="flex items-center gap-2"><Ear size={15} className="text-emerald-400" /> 盲听对决</span>}
+          desc="同一素材的两个版本,标签只是 A/B —— 数据只属于你的耳朵"
+          right={<span className="text-xs text-zinc-500">累计 {stats?.votes ?? 0} 票</span>}
+        />
+      </Card>
 
       {error ? (
         <Card>
@@ -102,7 +103,7 @@ export function BlindPage() {
         </Card>
       )}
 
-      <Card className="mt-5">
+      <Card>
         <CardHeader
           title={`口味排行(ELO · ${stats?.rows.length ?? 0} 首参与)`}
           desc="每次盲测投票实时更新;这是你的真实偏好,代理指标骗不了它"
@@ -151,6 +152,6 @@ export function BlindPage() {
           </CardBody>
         )}
       </Card>
-    </div>
+    </Page>
   )
 }

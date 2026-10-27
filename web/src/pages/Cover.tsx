@@ -7,7 +7,7 @@ import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { UploadPicker } from '@/components/UploadPicker'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Page, Select, Textarea } from '@/components/ui'
 
 type CoverPrepareResult = {
   project_id: string
@@ -201,7 +201,7 @@ export function CoverPage() {
     : []
 
   return (
-    <div className="mx-auto max-w-5xl p-5">
+    <Page>
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Mic2 size={15} /> 翻唱 / 风格重制</span>}
@@ -223,7 +223,7 @@ export function CoverPage() {
       </Card>
 
       {prepareJob && !prepDone && (
-        <div className="mt-5">
+        <div>
           <JobPanel jobId={prepareJob} events={prepEvents} done={prepDone} title="翻唱准备" />
         </div>
       )}
@@ -231,7 +231,7 @@ export function CoverPage() {
       {reviewing && prepResult && (
         <>
           {coverVersions.length > 0 && (
-            <Card className="mt-5">
+            <Card>
               <CardBody className="flex flex-wrap items-end gap-3">
                 <div className="min-w-64 flex-1">
                   <Label hint={`共 ${coverVersions.length} 次,当前显示最后一次`}>历史翻唱版本</Label>
@@ -258,7 +258,7 @@ export function CoverPage() {
               </CardBody>
             </Card>
           )}
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader title="旋律谱(melody only)" desc={summaryBits.join(' · ')} />
               <CardBody className="space-y-3">
@@ -302,12 +302,12 @@ export function CoverPage() {
           </div>
 
           {genJob && !genDone && (
-            <div className="mt-5">
+            <div>
               <JobPanel jobId={genJob} events={genEvents} done={genDone} title="重唱生成" />
             </div>
           )}
           {genDone && genResult && (
-            <Card className="mt-5">
+            <Card>
               <CardHeader
                 title="翻唱完成"
                 desc={`${genResult.duration}s · seed ${genResult.seed}`}
@@ -320,7 +320,7 @@ export function CoverPage() {
           )}
         </>
       )}
-    </div>
+    </Page>
   )
 }
 
