@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Gauge, Loader2, RefreshCw, Trophy } from 'lucide-react'
+import { Gauge, Loader2, Play, RefreshCw, Trophy, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
+
+function songUrl(r: { project_id: string; v: number }) {
+  return `/audio/projects/${r.project_id}/v${String(r.v).padStart(2, '0')}/song.flac`
+}
 
 type Row = {
   version_id: string
@@ -27,6 +31,7 @@ export function LeaderboardPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [jobId, setJobId] = useState<string | null>(null)
+  const [playing, setPlaying] = useState<Row | null>(null)
   const { events, done } = useJobStream(jobId)
 
   const refresh = useCallback(() => {
@@ -78,6 +83,7 @@ export function LeaderboardPage() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-zinc-900 text-zinc-400">
                 <tr>
+                  <th className="w-10 px-2 py-2"></th>
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-3 py-2 text-left">作品</th>
                   <th className="px-3 py-2">版本</th>
@@ -90,7 +96,17 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={r.version_id} className="border-t border-zinc-800 hover:bg-zinc-900/60">
+                  <tr key={r.version_id} className={`border-t border-zinc-800 hover:bg-zinc-900/60 ${playing?.version_id === r.version_id ? 'bg-emerald-500/5' : ''}`}>
+                    <td className="px-2 py-2">
+                      <button
+                        aria-label={`播放 ${r.project} v${r.v}`}
+                        title={playing?.version_id === r.version_id ? '关闭播放' : '播放这首歌'}
+                        onClick={() => setPlaying(playing?.version_id === r.version_id ? null : r)}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border ${playing?.version_id === r.version_id ? 'border-emerald-500/50 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}
+                      >
+                        {playing?.version_id === r.version_id ? <X size={13} /> : <Play size={13} className="ml-0.5" />}
+                      </button>
+                    </td>
                     <td className="px-3 py-2 font-mono text-zinc-500">
                       {i < 3 && r.score != null ? <Trophy size={12} className={i === 0 ? 'text-yellow-400' : i === 1 ? 'text-zinc-300' : 'text-amber-600'} /> : i + 1}
                     </td>
@@ -111,6 +127,22 @@ export function LeaderboardPage() {
           )}
         </CardBody>
       </Card>
+
+      {playing && (
+        <div className="fixed bottom-5 left-1/2 z-20 w-[min(640px,92vw)] -translate-x-1/2 rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur">
+          <div className="mb-1.5 flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 text-zinc-200">
+              <Play size={11} className="text-emerald-400" /> {playing.project} · v{playing.v}
+              {playing.note ? ` · ${playing.note}` : ''}
+            </span>
+            <div className="flex items-center gap-2">
+              <Link to={`/projects/${playing.project_id}`} className="text-emerald-400 hover:underline">打开项目 →</Link>
+              <button aria-label="关闭播放" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200" onClick={() => setPlaying(null)}><X size={13} /></button>
+            </div>
+          </div>
+          <audio key={playing.version_id} src={songUrl(playing)} controls autoPlay className="w-full" />
+        </div>
+      )}
     </Page>
   )
 }

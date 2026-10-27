@@ -197,7 +197,7 @@ export function ComposePage() {
                 存为预设
               </button>
             </div>
-            <Textarea rows={2} value={style} onChange={(e) => setStyle(e.target.value)} />
+            <Textarea rows={3} value={style} onChange={(e) => setStyle(e.target.value)} />
             {refInfo && <div className="mt-1 text-[11px] text-emerald-400/80">{refInfo}</div>}
           </div>
           <div className="flex min-h-40 flex-1 flex-col">
