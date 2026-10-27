@@ -46,6 +46,8 @@ do_start() {
     exit 1
   fi
   [[ -x "$PY" ]] || { echo "找不到 $PY — 先运行 ./install.sh"; exit 1; }
+  # .env 里的 HF_HUB_OFFLINE 等变量要进环境:huggingface_hub 读的是 os.environ
+  if [[ -f "$ROOT/.env" ]]; then set -a; . "$ROOT/.env" 2>/dev/null; set +a; fi
   : > "$LOG_FILE"
   nohup "$PY" -m uvicorn backend.app.main:app --host 0.0.0.0 --port "$PORT" --workers 1 >> "$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
@@ -127,7 +129,7 @@ case "$CMD" in
   health)  load_port; do_health ;;
   logs)    shift || true; do_logs "$@" ;;
   build)   (cd web && npm run build) ;;
-  dev)     "$PY" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload & BACK=$!; trap 'kill $BACK 2>/dev/null || true' EXIT; (cd web && npm run dev) ;;
+  dev)     if [[ -f "$ROOT/.env" ]]; then set -a; . "$ROOT/.env" 2>/dev/null; set +a; fi; "$PY" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload & BACK=$!; trap 'kill $BACK 2>/dev/null || true' EXIT; (cd web && npm run dev) ;;
   install) exec ./install.sh ;;
   -h|--help|help) sed -n '2,12p' "$0" ;;
   *) echo "未知命令: $1"; sed -n '2,12p' "$0"; exit 1 ;;

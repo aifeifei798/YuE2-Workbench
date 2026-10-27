@@ -96,7 +96,7 @@ class ModelManager:
                     if Path(settings.asr_aligner_repo).exists():
                         aligner = settings.asr_aligner_repo  # local directory
                     else:
-                        snapshot_download(settings.asr_aligner_repo, local_files_only=True)
+                        snapshot_download(settings.asr_aligner_repo)
                         aligner = settings.asr_aligner_repo  # cached HF repo
                 except Exception:
                     pass  # aligner not available (offline): timestamps disabled
@@ -119,7 +119,7 @@ class ModelManager:
 
                 device = settings.device if torch.cuda.is_available() else "cpu"
                 self._vae = YuE2VAE.from_pretrained(
-                    settings.yue2_vae_repo, decoder_only=True, device="cpu", local_files_only=True
+                    settings.yue2_vae_repo, decoder_only=True, device="cpu"
                 ).to(device)
             return self._vae
 
@@ -132,7 +132,7 @@ class ModelManager:
 
                 device = settings.device if torch.cuda.is_available() else "cpu"
                 self._full_vae = YuE2VAE.from_pretrained(
-                    settings.yue2_vae_repo, decoder_only=False, device="cpu", local_files_only=True
+                    settings.yue2_vae_repo, decoder_only=False, device="cpu"
                 ).to(device)
             return self._full_vae
 

@@ -1,6 +1,7 @@
 import os
 
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
+# 模型默认按需从 HuggingFace 下载;模型已全部在本地缓存、想彻底断网跑的,
+# 在 .env 里写 HF_HUB_OFFLINE=1(本仓库交付即离线可用)。
 
 import asyncio
 import mimetypes

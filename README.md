@@ -47,7 +47,7 @@ FastAPI(SQLite + 任务队列 + SSE 进度) · Vite + React + TypeScript + Tailw
 ```bash
 ./install.sh            # 环境自检 + venv + 全部依赖 + 前端构建(一条龙)
 ./install.sh --check    # 只做环境自检
-./install.sh --models   # 可选:一次性预下载 7 个模型(约 15GB)
+./install.sh --models   # 推荐:一次性预下载 8 个模型(约 15GB),之后完全离线
 ./server.sh start       # 后台启动并等待健康检查
 ./server.sh status      # 运行状态 / 模型驻留 / 显存 / 队列
 ./server.sh restart     # 重启      ./server.sh stop  停止
