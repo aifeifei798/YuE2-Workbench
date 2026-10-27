@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { AudioLines, Disc3, Ear, FileAudio, FolderOpen, LibraryBig, LogOut, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
+import { AudioLines, Disc3, Ear, FileAudio, FolderOpen, LibraryBig, LogOut, Mic2, Package, Settings, Sparkles, Trophy } from 'lucide-react'
 import { ComposePage } from '@/pages/Compose'
 import { ProjectsPage } from '@/pages/Projects'
 import { ProjectPage } from '@/pages/Project'
@@ -8,6 +8,7 @@ import { TranscribePage } from '@/pages/Transcribe'
 import { LibraryPage } from '@/pages/Library'
 import { CoverPage } from '@/pages/Cover'
 import { MasterPage } from '@/pages/Master'
+import { UploadsPage } from '@/pages/Uploads'
 import { BlindPage } from '@/pages/Blind'
 import { LeaderboardPage } from '@/pages/Leaderboard'
 import { SystemPage } from '@/pages/System'
@@ -50,6 +51,9 @@ function Nav({ role }: { role: string | null }) {
           </NavLink>
           <NavLink to="/transcribe" title="扒谱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <FileAudio size={14} />
+          </NavLink>
+          <NavLink to="/uploads" title="素材" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Package size={14} />
           </NavLink>
           <NavLink to="/library" title="音乐库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <LibraryBig size={14} />
@@ -119,6 +123,7 @@ export default function App() {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectPage />} />
             <Route path="/transcribe" element={<TranscribePage />} />
+            <Route path="/uploads" element={<UploadsPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/cover" element={<CoverPage />} />
             <Route path="/master" element={<MasterPage />} />
