@@ -16,6 +16,10 @@
 | ![音乐库](docs/screenshots/04-library.png) | ![排行榜](docs/screenshots/05-leaderboard.png) |
 | **翻唱流水线** — 分轨 → 扒谱 → 歌词 → 重唱 | **系统** — 七模型驻留管理与手动装卸 |
 | ![翻唱](docs/screenshots/06-cover.png) | ![系统](docs/screenshots/07-system.png) |
+| **素材库** — 上传统一管理,试听 / 复用 / 派生物下载 | **分轨** — HTDemucs 四轨分离,试听与 ZIP 打包 |
+| ![素材库](docs/screenshots/08-uploads.png) | ![分轨](docs/screenshots/10-stems.png) |
+| **母带** — BSV 修复链:预设 + 旋钮 + A/B 对听 | **盲听对决** — 匿名 A/B 投票 + ELO 口味排行 |
+| ![母带](docs/screenshots/09-master.png) | ![盲听](docs/screenshots/11-blind.png) |
 
 ## 🧩 功能模块
 
