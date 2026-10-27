@@ -517,6 +517,129 @@ def run_analyze(params: dict, emit, cancelled) -> dict:
         db.close()
 
 
+def run_master(params: dict, emit, cancelled) -> dict:
+    """整曲母带:渲染 → (默认)落成 source=master 的新版本,乐谱/隐变量原样继承。"""
+    import json as _json
+    import time as _time
+    from pathlib import Path as _Path
+
+    from ..core.db import SessionLocal
+    from ..models.tables import Version, uid
+    from .master_svc import master_to_file, resolve_params, src_cache_key
+
+    preset = params.get("preset")
+    overrides = params.get("overrides") or {}
+    mparams = resolve_params(preset, overrides)
+
+    db = SessionLocal()
+    version = None
+    new_version = None
+    vdir = None
+    tmp_out = None
+    try:
+        if params.get("version_id"):
+            version = db.get(Version, params["version_id"])
+            if version is None:
+                raise ValueError("version not found")
+            if not version.audio_path or not _Path(version.audio_path).exists():
+                raise ValueError("version has no audio")
+            src_path = version.audio_path
+            stems_dir = _Path(src_path).parent / "stems"
+            project_id = version.project_id
+        else:
+            src_path = params.get("path")
+            if not src_path or not _Path(src_path).exists():
+                raise ValueError("provide path or version_id")
+            stems_dir = settings.data_dir / "stems" / f"s_{src_cache_key(src_path)}"
+            project_id = params.get("project_id")
+
+        tmp_out = settings.data_dir / "cache" / f"master_tmp_{uid('t')}.flac"
+        stats = master_to_file(src_path, stems_dir, mparams, tmp_out, emit=emit, cancelled=cancelled)
+
+        master_meta = {
+            "preset": preset,
+            "overrides": overrides,
+            "params": mparams.to_dict(),
+            "stats": stats,
+            "source_version_id": version.id if version else None,
+            "source_version": version.v if version else None,
+        }
+
+        if params.get("create_version", True):
+            with VLOCK:
+                vnum, vdir = _alloc_version_dir(db, project_id)
+                note = (params.get("note") or f"母带 ({preset or '自定义'})")[:60]
+                new_version = Version(
+                    id=uid("v"),
+                    project_id=project_id,
+                    v=vnum,
+                    source="master",
+                    parent_version_id=version.id if version else None,
+                    note=note,
+                    status="running",
+                    abc=version.abc if version else None,
+                )
+                db.add(new_version)
+                db.commit()
+
+            _Path(tmp_out).replace(vdir / "song.flac")
+            vparent = _Path(version.audio_path).parent if version else None
+            for name in ("plan.abc", "semantic.npy", "latents.npy"):
+                if vparent and (vparent / name).exists():
+                    shutil.copy(vparent / name, vdir / name)
+            config = dict(version.config_json or {}) if version else {}
+            config["master"] = master_meta
+            (vdir / "config.json").write_text(
+                _json.dumps(config, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+            (vdir / "master.json").write_text(
+                _json.dumps(master_meta, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+
+            new_version.status = "done"
+            new_version.audio_path = str(vdir / "song.flac")
+            new_version.duration = stats["duration"]
+            new_version.config_json = config
+            db.commit()
+            emit(stage="done", detail=f"母带完成 → v{vnum:02d}")
+            return {
+                "version_id": new_version.id,
+                "project_id": project_id,
+                "v": vnum,
+                "urls": {"audio": f"/audio/projects/{project_id}/v{vnum:02d}/song.flac"},
+                "stats": stats,
+                "preset": preset,
+            }
+
+        out = settings.data_dir / "masters" / f"m_{src_cache_key(src_path)}_{int(_time.time())}.flac"
+        _Path(tmp_out).replace(out)
+        url = None
+        try:
+            url = "/audio/" + str(out.relative_to(settings.data_dir))
+        except ValueError:
+            pass
+        emit(stage="done", detail=f"母带完成 → {out.name}")
+        return {"path": str(out), "url": url, "stats": stats, "preset": preset}
+    except Exception:
+        if new_version is not None:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            new_version.status = "failed"
+            try:
+                db.commit()
+            except Exception:
+                pass
+            if vdir is not None:
+                shutil.rmtree(vdir, ignore_errors=True)
+        raise
+    finally:
+        if tmp_out is not None:
+            Path(tmp_out).unlink(missing_ok=True)
+        db.close()
+
+
 def run_model_load(params: dict, emit, cancelled) -> dict:
     name = params["name"]
     emit(stage="load_model", detail=f"loading {name}")
@@ -554,5 +677,6 @@ TASKS = {
     "evaluate_batch": run_evaluate_batch,
     "lyrics": run_lyrics,
     "analyze": run_analyze,
+    "master": run_master,
     "model_load": run_model_load,
 }

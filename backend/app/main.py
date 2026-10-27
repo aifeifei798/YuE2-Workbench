@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .core.config import settings
 from .core.db import init_db
-from .routers import agent, auth, blind, compose, cover, jobs, library, projects, system, tools, versions, workspace
+from .routers import agent, auth, blind, compose, cover, jobs, library, master, projects, system, tools, versions, workspace
 from .services import auth_svc, queue as job_queue
 from .services.queue import worker_loop
 
@@ -71,7 +71,7 @@ async def auth_middleware(request, call_next):
             request.state.role = role
     return await call_next(request)
 
-for r in (auth.router, system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router, versions.router, blind.router):
+for r in (auth.router, system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router, versions.router, blind.router, master.router):
     app.include_router(r)
 
 app.mount("/audio", DataStaticFiles(directory=settings.data_dir), name="audio")

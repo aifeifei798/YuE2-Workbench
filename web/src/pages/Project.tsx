@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AudioLines, Bot, ChevronLeft, Copy, FileSearch, Gauge, Layers, LibraryBig, Loader2, Mic2, Pencil, Play, Scissors, Sparkles, Square, Repeat, PencilRuler, Trash2 } from 'lucide-react'
+import { AudioLines, Bot, ChevronLeft, Copy, Disc3, FileSearch, Gauge, Layers, LibraryBig, Loader2, Mic2, Pencil, Play, Scissors, Sparkles, Square, Repeat, PencilRuler, Trash2 } from 'lucide-react'
 import { api, type ProjectDetail, type VersionOut } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -1094,6 +1094,9 @@ function Workspace({
           <a href={version.urls.semantic} download className="hover:text-emerald-400">语义 token</a>
           {cfg.abc_provided ? <span className="text-emerald-400/70">外部乐谱驱动</span> : null}
           <span className="flex-1" />
+          <Link to={`/master?v=${version.id}`} title="母带处理(预览 A/B + 导出)">
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Disc3 size={14} /></Button>
+          </Link>
           <Button size="sm" variant="ghost" title="复制为新版本" className="h-8 w-8 p-0" onClick={forkVersion}><Copy size={14} /></Button>
           <Button size="sm" variant="ghost" title="删除此版本" className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400" onClick={deleteVersion}><Trash2 size={14} /></Button>
           <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done} onClick={addToLibrary} title="把当前版本加入音乐库(自动分析打标)">

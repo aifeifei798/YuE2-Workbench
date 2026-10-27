@@ -154,10 +154,10 @@ fi
 _pip --no-deps "$WHEEL"
 ok "yue2-infer wheel: $(basename "$WHEEL")"
 
-section "Python 依赖(扒谱 / 分轨 / ASR / Agent)"
-_pip pretty_midi mido mir_eval scipy
+section "Python 依赖(扒谱 / 分轨 / ASR / Agent / 母带)"
+_pip pretty_midi mido mir_eval scipy pedalboard
 _pip qwen-asr
-ok "SheetSage2 + Qwen3-ASR 依赖"
+ok "SheetSage2 + Qwen3-ASR + 母带 DSP 依赖"
 _pip --no-deps demucs julius lameenc openunmix dora-search
 _pip tqdm pyyaml submitit omegaconf einops
 ok "HTDemucs(demucs)依赖"

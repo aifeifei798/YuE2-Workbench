@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { AudioLines, Ear, FileAudio, FolderOpen, LibraryBig, LogOut, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
+import { AudioLines, Disc3, Ear, FileAudio, FolderOpen, LibraryBig, LogOut, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
 import { ComposePage } from '@/pages/Compose'
 import { ProjectsPage } from '@/pages/Projects'
 import { ProjectPage } from '@/pages/Project'
 import { TranscribePage } from '@/pages/Transcribe'
 import { LibraryPage } from '@/pages/Library'
 import { CoverPage } from '@/pages/Cover'
+import { MasterPage } from '@/pages/Master'
 import { BlindPage } from '@/pages/Blind'
 import { LeaderboardPage } from '@/pages/Leaderboard'
 import { SystemPage } from '@/pages/System'
@@ -55,6 +56,9 @@ function Nav({ role }: { role: string | null }) {
           </NavLink>
           <NavLink to="/cover" title="翻唱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Mic2 size={14} />
+          </NavLink>
+          <NavLink to="/master" title="母带" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <Disc3 size={14} />
           </NavLink>
           <NavLink to="/blind" title="盲听对决" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Ear size={14} />
@@ -117,6 +121,7 @@ export default function App() {
             <Route path="/transcribe" element={<TranscribePage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/cover" element={<CoverPage />} />
+            <Route path="/master" element={<MasterPage />} />
             <Route path="/blind" element={<BlindPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/system" element={<SystemPage />} />

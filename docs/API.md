@@ -56,6 +56,16 @@
 | POST | `/api/stems` | `{file?|version_id?}` → `{stems: {vocals,drums,bass,other}: url}` |
 | GET | `/api/versions/{id}/stems` | 已有分轨 |
 
+## 5b. 母带(移植自 Beautiful-Singing-Voice-VST3 的修复链)
+
+链路:soft de-clip → 人声链(EQ/去浑浊/温暖/存在感/空气感 → 自适应双段 de-esser → 轻压缩 → 混响(默认 0)→ 加厚 double)→ 配乐链(低频清理 + 以人声为侧链的 250-4 kHz 动态闪避)→ 合成 → brickwall 限制器 → LUFS 归一(-14,7 个风格预设)。有分轨走人声/配乐双链,没有则整轨打磨;输出采样率跟随源音频(44.1k 分轨重采样回源时钟)。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/master/presets` | `{names[], presets: {名: 全量参数}, defaults}` |
+| POST | `/api/master/preview` | **同步**试听窗口(≤30s):`{version_id|path, region:[s,e], preset?, overrides?}` → `{url, original_url, vocal_url?, music_url?, stats:{lufs/peak 前→后, vocal_ratio_db}, mode}`;剪辑时间 0 对齐区域起点,A/B 换源保持播放位置,结果按参数哈希缓存 |
+| POST | `/api/master` | **任务**(202):`{version_id|path, preset?, overrides?, note?, create_version?=true}`;默认整曲渲染落成 `source=master` 新版本(继承乐谱/隐变量/歌词,`config.master` 存预设+统计),返回 `{job_id}` |
+
 ## 6. 歌词(ASR)与翻唱流水线
 
 | 方法 | 路径 | 说明 |
@@ -150,6 +160,7 @@
 - `GET /api/blind/pair`、`POST /api/blind/vote`、`GET /api/blind/stats`(盲测投票 + ELO)
 - `POST /api/generate/sweep`(种子扫描批量变体)、`POST /api/jobs/{id}/retry`(失败任务重试)
 - `GET /api/lyrics {version_id}`(带时间戳歌词对齐,参考歌词模糊对齐,落盘 lyrics.lrc)
+- `GET /api/master/presets`、`POST /api/master/preview`(同步区间 A/B 预览)、`POST /api/master`(整曲母带任务,默认落成 `source=master` 新版本);前端新增"母带"页(预设/12 旋钮/A-B 对听/solo/导出)
 
 ## 变体实现(设计等价,非缺口)
 
