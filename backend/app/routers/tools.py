@@ -12,7 +12,11 @@ from ..core.config import settings
 
 router = APIRouter(prefix="/api", tags=["tools"])
 
-ALLOWED_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".wma"}
+# 母带/分轨都要能吃 YouTube/Suno 下载的容器格式(.webm/.mp4),解码统一走 ffmpeg
+ALLOWED_EXTS = {
+    ".mp3", ".wav", ".flac", ".m4a", ".m4b", ".ogg", ".oga", ".opus", ".aac", ".wma",
+    ".webm", ".mp4", ".aiff", ".aif",
+}
 
 
 @router.post("/upload")
