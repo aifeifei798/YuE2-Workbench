@@ -79,7 +79,7 @@ function Nav({ role }: { role: string | null }) {
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">
           {health?.models?.gpu && (
             <span className="hidden sm:inline">
-              {health.models.gpu.name} · 显存 {health.models.gpu.free_gb}/{health.models.gpu.total_gb} GB
+              {health.models.gpu.name} · 显存 {(health.models.gpu.total_gb - health.models.gpu.free_gb).toFixed(1)}/{health.models.gpu.total_gb} GB
             </span>
           )}
           <JobCenter />
