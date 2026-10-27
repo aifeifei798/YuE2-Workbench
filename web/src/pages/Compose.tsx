@@ -219,19 +219,27 @@ export function ComposePage() {
               )}
             </div>
           </div>
-          <div className="grid shrink-0 grid-cols-3 gap-3">
-            <div>
-              <Label>规划模式</Label>
-              <SelectMenu
-                value={cot}
-                onChange={(v) => setCot(v as typeof cot)}
-                options={[
-                  { value: 'full', label: 'full · 旋律+和弦' },
-                  { value: 'melody', label: 'melody · 仅旋律' },
-                  { value: 'off', label: 'off · 直接生成' },
-                ]}
-              />
+          <div className="shrink-0">
+            <Label hint="规划得越细,出歌越慢">规划模式</Label>
+            <div className="grid grid-cols-3 gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 p-1">
+              {([
+                { value: 'full', label: '完整规划', sub: '旋律 + 和弦' },
+                { value: 'melody', label: '仅旋律谱', sub: '跳过和弦' },
+                { value: 'off', label: '直接生成', sub: '最快出歌' },
+              ] as const).map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setCot(o.value as typeof cot)}
+                  className={`rounded-md px-1 py-1.5 text-center transition-colors ${cot === o.value ? 'bg-emerald-500/15 text-emerald-300' : 'text-zinc-400 hover:text-zinc-200'}`}
+                >
+                  <span className="block text-[13px] font-medium">{o.label}</span>
+                  <span className="block text-[11px] text-current opacity-70">{o.sub}</span>
+                </button>
+              ))}
             </div>
+          </div>
+          <div className="grid shrink-0 grid-cols-2 gap-3">
             <div>
               <Label>Seed</Label>
               <Input value={seedText} placeholder="随机" onChange={(e) => setSeedText(e.target.value.replace(/[^0-9]/g, ''))} />

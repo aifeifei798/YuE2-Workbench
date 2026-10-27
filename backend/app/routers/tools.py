@@ -202,6 +202,21 @@ def _zip_dir(src_dir: Path, out_name: str) -> Path:
     return out
 
 
+@router.get("/uploads/{upload_id}/stems")
+def upload_stems(upload_id: str):
+    """素材的已有分轨(与版本分轨端点同构)。"""
+    u = _get_asset(upload_id)
+    sdir = settings.data_dir / "stems" / f"s_{src_cache_key(u.path)}"
+    out = {}
+    for name in ("vocals", "drums", "bass", "other"):
+        p = sdir / f"{name}.flac"
+        if p.exists():
+            out[name] = "/audio/" + str(p.relative_to(settings.data_dir))
+    if "vocals" not in out:
+        raise HTTPException(404, "这个素材还没有分轨")
+    return {"stems": out}
+
+
 @router.get("/uploads/{upload_id}/export/stems.zip")
 def upload_stems_zip(upload_id: str):
     u = _get_asset(upload_id)

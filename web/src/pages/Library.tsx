@@ -107,6 +107,7 @@ export function LibraryPage() {
 
   return (
     <Page>
+      {importing && <JobPanel jobId={jobId!} events={events} done={done} title="导入分析" failedNote={latestEvent?.detail} />}
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><LibraryBig size={15} /> 音乐库</span>}
@@ -128,17 +129,13 @@ export function LibraryPage() {
             </div>
           }
         />
-      </Card>
-
-      {importing && <JobPanel jobId={jobId!} events={events} done={done} title="导入分析" failedNote={latestEvent?.detail} />}
-
-      {loading && <div className="text-sm text-zinc-500">加载中…</div>}
-      {!loading && items.length === 0 && (
-        <Card><CardBody className="text-sm text-zinc-500">空空如也,点右上角导入歌曲。</CardBody></Card>
-      )}
-
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <CardBody className="p-0">
+          {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
+          {!loading && items.length === 0 && (
+            <div className="p-4 text-sm text-zinc-500">空空如也,点右上角导入歌曲。</div>
+          )}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-800 px-4 py-2.5 text-xs">
           <span className="text-zinc-500">标签:</span>
           <button onClick={() => setTagFilter(null)} className={`rounded-full border px-2.5 py-1 ${!tagFilter ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>全部</button>
           {allTags.map((t) => (
@@ -147,10 +144,9 @@ export function LibraryPage() {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="divide-y divide-zinc-800">
         {visible.map((it) => (
-          <Card key={it.id}>
-            <CardBody className="py-3">
+          <div key={it.id} className="px-4 py-3 transition-colors hover:bg-zinc-900/40">
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
@@ -183,10 +179,11 @@ export function LibraryPage() {
                 </div>
               </div>
               <div className="mt-2"><AudioPlayer url={it.audio_url} height={44} /></div>
-            </CardBody>
-          </Card>
+          </div>
         ))}
       </div>
+        </CardBody>
+      </Card>
 
       {dedup && (
         <Card>
