@@ -43,6 +43,23 @@ class Version(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 
+class UploadAsset(Base):
+    """统一登记的上传素材:扒谱 / 翻唱 / 母带共用,原名可查、可复用、可清理。"""
+
+    __tablename__ = "uploads"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    filename: Mapped[str] = mapped_column(Text, default="")
+    path: Mapped[str] = mapped_column(Text)
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    duration: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ext: Mapped[str] = mapped_column(String(16), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    # 派生关联:{"cover_project_ids": [...], "master_version_ids": [...]}
+    derived_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
 class LibraryItem(Base):
     __tablename__ = "library"
 

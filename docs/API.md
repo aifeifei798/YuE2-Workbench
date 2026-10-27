@@ -161,6 +161,7 @@
 - `POST /api/generate/sweep`(种子扫描批量变体)、`POST /api/jobs/{id}/retry`(失败任务重试)
 - `GET /api/lyrics {version_id}`(带时间戳歌词对齐,参考歌词模糊对齐,落盘 lyrics.lrc)
 - `GET /api/master/presets`、`POST /api/master/preview`(同步区间 A/B 预览)、`POST /api/master`(整曲母带任务,默认落成 `source=master` 新版本);前端新增"母带"页(预设/12 旋钮/A-B 对听/solo/导出)
+- `GET /api/uploads`、`DELETE /api/uploads/{id}`(上传素材统一管理:上传即登记原名/大小/时长,派生分轨/扒谱以路径键控标记;删除连带清掉这些缓存,启动时收编 data/uploads 孤儿文件);`GET /api/uploads/{id}/export/stems.zip|transcription.zip`(派生物打包下载);翻唱/母带完成后自动回写 `derived_json` 关联,列表返回 `covers[]`/`masters[]`(含下载 URL);前端新增"素材"页(试听播放条/派生物下载/去扒谱·翻唱·母带 `?u=` 深链/删除),扒谱 / 翻唱 / 母带三页均有"已上传素材"选择器免重复上传;上传白名单扩到 .webm/.mp4/.m4a/.oga/.aiff
 
 ## 变体实现(设计等价,非缺口)
 

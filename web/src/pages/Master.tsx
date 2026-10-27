@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Disc3, Loader2, RefreshCw, Scissors, Upload, X } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, type UploadAsset } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
+import { UploadPicker } from '@/components/UploadPicker'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select } from '@/components/ui'
 
 type ProjectSummary = { id: string; title: string }
@@ -65,7 +66,7 @@ export function MasterPage() {
   const [versions, setVersions] = useState<VersionRow[]>([])
   const [versionId, setVersionId] = useState('')
   const [detail, setDetail] = useState<VersionDetail | null>(null)
-  const [upload, setUpload] = useState<{ path: string; filename: string; url: string; duration: number } | null>(null)
+  const [upload, setUpload] = useState<{ id: string; path: string; filename: string; url: string; duration: number } | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const [preset, setPreset] = useState<string>(CUSTOM)
@@ -118,8 +119,10 @@ export function MasterPage() {
     return new Promise((resolve) => {
       const a = new Audio()
       a.preload = 'metadata'
-      a.onloadedmetadata = () => resolve(isFinite(a.duration) ? a.duration : 0)
-      a.onerror = () => resolve(0)
+      // 有些下载的 webm 元数据不完整,5s 读不到就放弃,时长未知不挡母带流程
+      const timer = setTimeout(() => resolve(0), 5000)
+      a.onloadedmetadata = () => { clearTimeout(timer); resolve(isFinite(a.duration) ? a.duration : 0) }
+      a.onerror = () => { clearTimeout(timer); resolve(0) }
       a.src = url
     })
   }
@@ -133,9 +136,9 @@ export function MasterPage() {
       fd.append('file', f)
       const up = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!up.ok) throw new Error(`${up.status} ${await up.text()}`)
-      const meta = (await up.json()) as { path: string; url: string; filename: string }
+      const meta = (await up.json()) as { id: string; path: string; url: string; filename: string }
       const duration = await readDuration(meta.url)
-      setUpload({ path: meta.path, url: meta.url, filename: meta.filename ?? f.name, duration })
+      setUpload({ id: meta.id, path: meta.path, url: meta.url, filename: meta.filename ?? f.name, duration })
       setVersionId('')
       setDetail(null)
       setExportJob(null)
@@ -146,16 +149,33 @@ export function MasterPage() {
     }
   }
 
-  // 深链 ?v=<version_id>
+  function pickUpload(u: UploadAsset) {
+    setUpload({ id: u.id, path: u.path, filename: u.filename, url: u.url ?? '', duration: u.duration ?? 0 })
+    setVersionId('')
+    setDetail(null)
+    setExportJob(null)
+  }
+
+  // 深链 ?v=<version_id> / ?u=<upload_id>
   useEffect(() => {
-    const want = sp.get('v')
-    if (!want) return
-    api<VersionDetail>(`/versions/${want}`)
-      .then((d) => {
-        loadProject(d.project_id, want)
-        setSp({}, { replace: true })
-      })
-      .catch(() => setSp({}, { replace: true }))
+    const wantU = sp.get('u')
+    const wantV = sp.get('v')
+    if (wantU) {
+      api<UploadAsset[]>('/uploads')
+        .then((list) => {
+          const u = list.find((x) => x.id === wantU)
+          if (u) pickUpload(u)
+          setSp({}, { replace: true })
+        })
+        .catch(() => setSp({}, { replace: true }))
+    } else if (wantV) {
+      api<VersionDetail>(`/versions/${wantV}`)
+        .then((d) => {
+          loadProject(d.project_id, wantV)
+          setSp({}, { replace: true })
+        })
+        .catch(() => setSp({}, { replace: true }))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -182,7 +202,7 @@ export function MasterPage() {
   // ---- 预览 ----
   const renderPreview = useCallback(
     async (rg?: [number, number]) => {
-      if (!versionId || !presets) return
+      if ((!versionId && !upload) || !presets) return
       setPreviewLoading(true)
       setError(null)
       try {
@@ -304,7 +324,7 @@ export function MasterPage() {
           api<ProjectSummary[]>('/projects').then(setProjects)
           loadProject(pid)
         }
-        body = { path: upload.path, project_id: pid, ...presetPart }
+        body = { path: upload.path, project_id: pid, upload_id: upload.id, ...presetPart }
       } else {
         body = { version_id: versionId, ...presetPart }
       }
@@ -355,7 +375,7 @@ export function MasterPage() {
                   </span>
                 : '上传本地歌曲母带(mp3 / wav / flac …,或选择下方项目版本)'}
           </button>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Label hint="上传的文件导出时自动按文件名建项目">项目</Label>
               <Select aria-label="选择项目" value={projectId} onChange={(e) => { setVersionId(''); setUpload(null); loadProject(e.target.value) }}>
@@ -377,6 +397,7 @@ export function MasterPage() {
                 ))}
               </Select>
             </div>
+            <UploadPicker onPick={pickUpload} hint="素材页统一管理,免重复上传" />
           </div>
         </CardBody>
       </Card>

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ..core.config import settings
 from ..core.db import SessionLocal
-from ..models.tables import Project, uid
+from ..models.tables import Project, UploadAsset, uid
 from .asr_svc import transcribe_lyrics
 from .stems_svc import separate_file
 from .transcribe_svc import transcribe_file
@@ -37,6 +37,15 @@ def prepare_cover(params: dict, emit) -> dict:
         )
         db.add(project)
         db.commit()
+        # 素材关联:翻唱准备完成后记到上传素材上,素材页可跳回/下载
+        ua = db.query(UploadAsset).filter(UploadAsset.path == src).first()
+        if ua is not None:
+            d = dict(ua.derived_json or {})
+            ids = d.get("cover_project_ids", [])
+            ids.append(project.id)
+            d["cover_project_ids"] = ids[-10:]
+            ua.derived_json = d
+            db.commit()
     finally:
         db.close()
 

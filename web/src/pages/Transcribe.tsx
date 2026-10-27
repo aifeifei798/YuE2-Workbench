@@ -1,9 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FileAudio, Loader2, Upload } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, type UploadAsset } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
+import { UploadPicker } from '@/components/UploadPicker'
 import { Button, Card, CardBody, CardHeader } from '@/components/ui'
 
 type TranscribeResult = {
@@ -20,6 +22,7 @@ type TranscribeResult = {
 }
 
 export function TranscribePage() {
+  const [sp, setSp] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploaded, setUploaded] = useState<{ path: string; filename: string } | null>(null)
@@ -32,6 +35,20 @@ export function TranscribePage() {
     () => ((job?.result ?? events.find((e) => e.result)?.result) ?? undefined) as TranscribeResult | undefined,
     [job, events],
   )
+
+  // 深链 ?u=<upload_id>:素材页"去扒谱"直达,预填不自动开跑
+  useEffect(() => {
+    const want = sp.get('u')
+    if (!want) return
+    api<UploadAsset[]>('/uploads')
+      .then((list) => {
+        const u = list.find((x) => x.id === want)
+        if (u) setUploaded({ path: u.path, filename: u.filename })
+        setSp({}, { replace: true })
+      })
+      .catch(() => setSp({}, { replace: true }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function pick(f: File | null) {
     setFile(f)
@@ -77,9 +94,10 @@ export function TranscribePage() {
             className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-8 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
           >
             {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-            {file ? file.name : '点击选择音频文件'}
-            <span className="text-xs text-zinc-600">mp3 / wav / flac / m4a …</span>
+            {file ? file.name : uploaded ? uploaded.filename : '点击选择音频文件'}
+            <span className="text-xs text-zinc-600">mp3 / wav / flac / m4a / webm …</span>
           </button>
+          <UploadPicker onPick={(u) => { setFile(null); setUploaded({ path: u.path, filename: u.filename }) }} />
           <label className="flex items-center gap-2 text-sm text-zinc-300">
             <input type="checkbox" checked={melodyOnly} onChange={(e) => setMelodyOnly(e.target.checked)} className="accent-emerald-500" />
             仅旋律谱(翻唱用,去掉和弦)

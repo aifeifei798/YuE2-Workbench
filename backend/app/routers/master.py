@@ -118,6 +118,7 @@ def preview(req: PreviewIn):
 class MasterIn(BaseModel):
     version_id: str | None = None
     path: str | None = None
+    upload_id: str | None = None  # 上传素材模式:母带版本回写素材关联
     preset: str | None = None
     overrides: dict = {}
     note: str | None = None
@@ -139,6 +140,7 @@ async def start_master(req: MasterIn):
         {
             "version_id": req.version_id,
             "path": req.path,
+            "upload_id": req.upload_id,
             "preset": req.preset,
             "overrides": req.overrides,
             "note": req.note,

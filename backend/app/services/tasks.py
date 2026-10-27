@@ -524,11 +524,12 @@ def run_master(params: dict, emit, cancelled) -> dict:
     from pathlib import Path as _Path
 
     from ..core.db import SessionLocal
-    from ..models.tables import Version, uid
+    from ..models.tables import UploadAsset, Version, uid
     from .master_svc import master_to_file, resolve_params, src_cache_key
 
     preset = params.get("preset")
     overrides = params.get("overrides") or {}
+    upload_id = params.get("upload_id")
     mparams = resolve_params(preset, overrides)
 
     db = SessionLocal()
@@ -561,6 +562,7 @@ def run_master(params: dict, emit, cancelled) -> dict:
             "overrides": overrides,
             "params": mparams.to_dict(),
             "stats": stats,
+            "upload_id": upload_id,
             "source_version_id": version.id if version else None,
             "source_version": version.v if version else None,
         }
@@ -601,6 +603,18 @@ def run_master(params: dict, emit, cancelled) -> dict:
             new_version.duration = stats["duration"]
             new_version.config_json = config
             db.commit()
+
+            # 素材关联:上传路径模式记到素材上,素材页可回跳/下载
+            if upload_id:
+                ua = db.get(UploadAsset, upload_id)
+                if ua is not None:
+                    d = dict(ua.derived_json or {})
+                    ids = d.get("master_version_ids", [])
+                    ids.append(new_version.id)
+                    d["master_version_ids"] = ids[-10:]
+                    ua.derived_json = d
+                    db.commit()
+
             emit(stage="done", detail=f"母带完成 → v{vnum:02d}")
             return {
                 "version_id": new_version.id,

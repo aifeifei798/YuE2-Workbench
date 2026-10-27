@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Mic2, Upload } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, type UploadAsset } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
+import { UploadPicker } from '@/components/UploadPicker'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Textarea } from '@/components/ui'
 
 type CoverPrepareResult = {
@@ -27,6 +28,7 @@ const STYLE_PRESETS = [
 ]
 
 export function CoverPage() {
+  const [sp, setSp] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -48,9 +50,25 @@ export function CoverPage() {
   const [style, setStyle] = useState('')
   const [lyrics, setLyrics] = useState('')
   const [seed, setSeed] = useState('')
+  const [sourceName, setSourceName] = useState('')
+
+  // 深链 ?u=<upload_id>:素材页"去翻唱"直达,选完自动开始分析
+  useEffect(() => {
+    const want = sp.get('u')
+    if (!want) return
+    api<UploadAsset[]>('/uploads')
+      .then((list) => {
+        const u = list.find((x) => x.id === want)
+        if (u) reuseUpload(u)
+        setSp({}, { replace: true })
+      })
+      .catch(() => setSp({}, { replace: true }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function pick(f: File | null) {
     setFile(f)
+    setSourceName(f?.name ?? '')
     setError(null)
     setPrepareJob(null)
     setGenJob(null)
@@ -71,6 +89,23 @@ export function CoverPage() {
       setError(String(e))
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function reuseUpload(u: UploadAsset) {
+    setError(null)
+    setFile(null)
+    setSourceName(u.filename)
+    setPrepareJob(null)
+    setGenJob(null)
+    try {
+      const res = await api<{ job_id: string }>('/cover/prepare', {
+        method: 'POST',
+        body: JSON.stringify({ path: u.path }),
+      })
+      setPrepareJob(res.job_id)
+    } catch (e) {
+      setError(String(e))
     }
   }
 
@@ -117,9 +152,10 @@ export function CoverPage() {
             className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-8 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
           >
             {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-            {file ? file.name : '点击选择要翻唱的歌曲'}
+            {file ? file.name : sourceName || '点击选择要翻唱的歌曲'}
             <span className="text-xs text-zinc-600">准备阶段约 1~3 分钟(分轨 + 扒谱 + 歌词识别)</span>
           </button>
+          <UploadPicker onPick={reuseUpload} hint="复用素材库里的歌,选完自动开始分析" />
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
         </CardBody>
       </Card>

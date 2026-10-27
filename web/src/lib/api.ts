@@ -72,6 +72,23 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export type UploadAsset = {
+  id: string
+  filename: string
+  path: string
+  size: number
+  duration?: number | null
+  ext: string
+  note: string
+  created_at: number
+  url?: string | null
+  exists: boolean
+  has_stems: boolean
+  has_transcription: boolean
+  covers?: { project_id: string; title: string }[]
+  masters?: { version_id: string; project_id: string; v: number; note: string; audio_url: string }[]
+}
+
 export type JobEvent = {
   stage?: string
   detail?: string
