@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from ..core.config import settings
 from ..services import queue
 from ..services.models_mgr import models
 
@@ -20,6 +21,7 @@ MODEL_INFO = [
 def healthz():
     return {
         "status": "ok",
+        "version": settings.app_version,
         "models": models.status(),
         "queue": {"depth": queue.queue_depth()},
     }

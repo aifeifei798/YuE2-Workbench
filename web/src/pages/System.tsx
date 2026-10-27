@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Download, Loader2, Settings, Upload } from 'lucide-react'
 import { api } from '@/lib/api'
-import { Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
+import { Button, Badge, Card, CardBody, CardHeader, Page } from '@/components/ui'
 import { cn } from '@/lib/job'
 
 type ModelRow = { name: string; label: string; repo: string; vram: string; loaded: boolean }
@@ -10,11 +10,15 @@ export function SystemPage() {
   const [rows, setRows] = useState<ModelRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
+  const [version, setVersion] = useState('')
 
   const refresh = useCallback(() => {
     api<ModelRow[]>('/models').then(setRows).catch(() => {}).finally(() => setLoading(false))
   }, [])
   useEffect(refresh, [refresh])
+  useEffect(() => {
+    api<{ version: string }>('/healthz').then((h) => setVersion(h.version)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!busy) return
@@ -55,6 +59,7 @@ export function SystemPage() {
         <CardHeader
           title={<span className="flex items-center gap-2"><Settings size={15} /> 系统 · 模型管理</span>}
           desc="模型按需懒加载,不手动加载也会在用到时自动载入;全部卸载后首次生成会重新加载 YuE2(约 10 秒)"
+          right={version && <Badge status="queued">v{version}</Badge>}
         />
         <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
           {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}

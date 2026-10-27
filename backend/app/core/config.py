@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[3]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WB_", env_file=str(ROOT / ".env"), extra="ignore")
 
+    app_version: str = "0.4.0"
+
     data_dir: Path = ROOT / "data"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     device: str = "cuda"
