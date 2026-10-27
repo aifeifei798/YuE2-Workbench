@@ -159,16 +159,15 @@ export function TranscribePage() {
 
   return (
     <Page>
-      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
       <Card>
-        <CardHeader title={<span className="flex items-center gap-2"><FileAudio size={15} /> 自动扒谱</span>} desc="歌曲 → 主旋律 + 和弦 + 节拍 + 调性" />
+        <CardHeader title={<span className="flex items-center gap-2"><FileAudio size={15} /> 自动扒谱</span>} desc="歌曲 → 主旋律 + 和弦 + 节拍 + 调性;选已扒谱素材秒出上次结果" />
         <CardBody className="space-y-4">
           <input ref={fileRef} type="file" accept="audio/*" aria-label="上传扒谱音频" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; pick(f) }} />
           <button
             onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-8 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
+            className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-7 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
           >
-            {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+            {uploading ? <Loader2 className="animate-spin" size={19} /> : <Upload size={19} />}
             {file ? file.name : uploaded ? uploaded.filename : '点击选择音频文件'}
             <span className="text-xs text-zinc-600">mp3 / wav / flac / m4a / webm …</span>
           </button>
@@ -205,57 +204,56 @@ export function TranscribePage() {
         </CardBody>
       </Card>
 
-      <div className="space-y-5">
-        {!jobId && !shown && (
-          <Card className="flex min-h-[300px] items-center justify-center">
-            <div className="text-center text-sm text-zinc-500">
-              {restoring ? <Loader2 className="mx-auto mb-2 animate-spin text-zinc-400" size={18} /> : null}
-              {restoring ? '正在载入历史扒谱结果…' : '上传一首歌,这里会出可编辑的 ABC 乐谱'}
-              <div className="mt-1 text-xs text-zinc-600">同时输出分轨 MIDI 与节拍/和弦/调性标注;选已扒谱素材秒出上次结果</div>
-            </div>
-          </Card>
-        )}
-        {busy && <JobPanel jobId={jobId} events={events} done={done} title="扒谱进度" />}
-        {shown && (
-          <>
-            <Card>
-              <CardHeader
-                title="转录结果"
-                desc={[
-                  shown.summary.keys?.[0]?.key && `调性 ${shown.summary.keys[0].key}`,
-                  shown.summary.tempo && `${shown.summary.tempo} BPM`,
-                  `${shown.summary.n_chords ?? 0} 个和弦`,
-                ].filter(Boolean).join(' · ')}
-              />
-              <CardBody className="space-y-4">
-                {shown.abc ? <Notation abc={shown.abc} /> : (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                    这个版本没有生成 ABC(素材可能没有可解码的节拍),MIDI/标注仍在下方
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-3 text-xs text-zinc-400">
-                  {Object.entries(shown.files).map(([name, url]) => (
-                    <a key={name} href={url} download className="hover:text-emerald-400">
-                      {name}
-                    </a>
-                  ))}
+      {busy && <JobPanel jobId={jobId} events={events} done={done} title="扒谱进度" />}
+
+      {!busy && !shown && (
+        <Card className="flex min-h-[120px] items-center justify-center">
+          <div className="text-center text-sm text-zinc-500">
+            {restoring ? <Loader2 className="mx-auto mb-2 animate-spin text-zinc-400" size={18} /> : null}
+            {restoring ? '正在载入历史扒谱结果…' : '上传一首歌,这里会出可编辑的 ABC 乐谱'}
+            <div className="mt-1 text-xs text-zinc-600">同时输出分轨 MIDI 与节拍/和弦/调性标注</div>
+          </div>
+        </Card>
+      )}
+
+      {shown && (
+        <>
+          <Card>
+            <CardHeader
+              title="转录结果"
+              desc={[
+                shown.summary.keys?.[0]?.key && `调性 ${shown.summary.keys[0].key}`,
+                shown.summary.tempo && `${shown.summary.tempo} BPM`,
+                `${shown.summary.n_chords ?? 0} 个和弦`,
+              ].filter(Boolean).join(' · ')}
+            />
+            <CardBody className="space-y-4">
+              {shown.abc ? <Notation abc={shown.abc} /> : (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  这个版本没有生成 ABC(素材可能没有可解码的节拍),MIDI/标注仍在下方
                 </div>
+              )}
+              <div className="flex flex-wrap gap-3 text-xs text-zinc-400">
+                {Object.entries(shown.files).map(([name, url]) => (
+                  <a key={name} href={url} download className="hover:text-emerald-400">
+                    {name}
+                  </a>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+          {!!shown.summary.chords_head?.length && (
+            <Card>
+              <CardHeader title="和弦进行" />
+              <CardBody className="flex flex-wrap gap-1.5">
+                {shown.summary.chords_head.map((c, i) => (
+                  <span key={i} className="rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 font-mono text-xs text-zinc-300">{c}</span>
+                ))}
               </CardBody>
             </Card>
-            {!!shown.summary.chords_head?.length && (
-              <Card>
-                <CardHeader title="和弦进行" />
-                <CardBody className="flex flex-wrap gap-1.5">
-                  {shown.summary.chords_head.map((c, i) => (
-                    <span key={i} className="rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 font-mono text-xs text-zinc-300">{c}</span>
-                  ))}
-                </CardBody>
-              </Card>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </>
+      )}
     </Page>
   )
 }

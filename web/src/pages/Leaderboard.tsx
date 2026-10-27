@@ -50,9 +50,12 @@ export function LeaderboardPage() {
 
   return (
     <Page className="flex h-full flex-col">
-      <Card className="shrink-0">
+      {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} />}
+
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
           title="评测排行榜"
+          desc="全部版本按复合分排名:0.45×歌词清晰度 + 0.30×结构连贯性 + 0.20×重构SNR + 0.05×低削波 —— 代理指标,最终以人耳为准"
           right={
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={refresh}><RefreshCw size={13} /> 刷新</Button>
@@ -66,15 +69,6 @@ export function LeaderboardPage() {
               </Button>
             </div>
           }
-        />
-      </Card>
-
-      {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} />}
-
-      <Card className="flex min-h-0 flex-1 flex-col">
-        <CardHeader
-          title="全部版本 · 复合分排名"
-          desc="0.45×歌词清晰度 + 0.30×结构连贯性 + 0.20×重构SNR + 0.05×低削波 —— 代理指标,最终以人耳为准"
         />
         <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
           {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}

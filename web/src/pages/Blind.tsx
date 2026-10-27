@@ -63,45 +63,44 @@ export function BlindPage() {
           desc="同一素材的两个版本,标签只是 A/B —— 数据只属于你的耳朵"
           right={<span className="text-xs text-zinc-500">累计 {stats?.votes ?? 0} 票</span>}
         />
-      </Card>
-
-      {error ? (
-        <Card>
+        {error ? (
           <CardBody className="flex items-center justify-between text-sm text-zinc-400">
             <span>{error}</span>
             <Button size="sm" variant="outline" onClick={loadPair}><RefreshCw size={13} /> 重试</Button>
           </CardBody>
-        </Card>
-      ) : !pair ? (
-        <div className="text-sm text-zinc-500">加载中…</div>
-      ) : (
-        <Card>
-          <CardHeader
-            title="这一轮,哪个更好听?"
-            desc="不显示曲目信息;两边可以反复听,凭直觉选"
-            right={
-              <button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={loadPair}>
-                换一组
-              </button>
-            }
-          />
-          <CardBody className="grid gap-4 sm:grid-cols-2">
-            {(['a', 'b'] as const).map((side) => (
-              <div key={side} className="rounded-xl border border-zinc-800 p-3">
-                <div className="mb-2 flex items-baseline justify-between">
-                  <span className="text-sm font-medium text-zinc-200">选手 {side.toUpperCase()}</span>
+        ) : !pair ? (
+          <CardBody>
+            <div className="text-sm text-zinc-500">加载中…</div>
+          </CardBody>
+        ) : (
+          <>
+            <CardHeader
+              title="这一轮,哪个更好听?"
+              desc="不显示曲目信息;两边可以反复听,凭直觉选"
+              right={
+                <button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={loadPair}>
+                  换一组
+                </button>
+              }
+            />
+            <CardBody className="grid gap-4 sm:grid-cols-2">
+              {(['a', 'b'] as const).map((side) => (
+                <div key={side} className="rounded-xl border border-zinc-800 p-3">
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium text-zinc-200">选手 {side.toUpperCase()}</span>
+                  </div>
+                  <AudioPlayer url={pair[side].url} height={56} />
                 </div>
-                <AudioPlayer url={pair[side].url} height={56} />
-              </div>
-            ))}
-          </CardBody>
-          <CardBody className="flex flex-wrap items-center justify-center gap-3 border-t border-zinc-800">
-            <Button disabled={voting} onClick={() => vote('a')}>选 A</Button>
-            <Button variant="outline" disabled={voting} onClick={() => vote('tie')}>难分伯仲</Button>
-            <Button disabled={voting} onClick={() => vote('b')}>选 B</Button>
-          </CardBody>
-        </Card>
-      )}
+              ))}
+            </CardBody>
+            <CardBody className="flex flex-wrap items-center justify-center gap-3 border-t border-zinc-800">
+              <Button disabled={voting} onClick={() => vote('a')}>选 A</Button>
+              <Button variant="outline" disabled={voting} onClick={() => vote('tie')}>难分伯仲</Button>
+              <Button disabled={voting} onClick={() => vote('b')}>选 B</Button>
+            </CardBody>
+          </>
+        )}
+      </Card>
 
       <Card>
         <CardHeader
