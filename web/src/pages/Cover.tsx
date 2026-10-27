@@ -7,6 +7,7 @@ import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { UploadPicker } from '@/components/UploadPicker'
+import { useT } from '@/lib/i18n'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Page, Select, Textarea } from '@/components/ui'
 
 type CoverPrepareResult = {
@@ -29,6 +30,7 @@ const STYLE_PRESETS = [
 ]
 
 export function CoverPage() {
+  const t = useT()
   const [sp, setSp] = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -154,7 +156,7 @@ export function CoverPage() {
         cot: 'melody',
         source: 'cover',
         seed: seed.trim() === '' ? null : Number(seed),
-        note: '翻唱',
+        note: t('翻唱', 'cover'),
       }),
     })
       .then((r) => setGenJob(r.job_id))
@@ -165,7 +167,7 @@ export function CoverPage() {
     const c = coverVersions.find((x) => x.project_id === pid)
     if (!c) return
     if (!c.result) {
-      setError('这个版本的分析结果已失效(任务记录被清理),请在项目页继续或重新分析')
+      setError(t('这个版本的分析结果已失效(任务记录被清理),请在项目页继续或重新分析', 'This version\'s analysis is gone (job records cleaned) — continue on the project page or re-analyze'))
       return
     }
     setError(null)
@@ -175,7 +177,7 @@ export function CoverPage() {
   }
 
   async function deleteCover() {
-    if (!activeCoverId || !confirm('删除这个翻唱版本(整个草稿项目)?不提供找回。')) return
+    if (!activeCoverId || !confirm(t('删除这个翻唱版本(整个草稿项目)?不提供找回。', 'Delete this cover version (the whole draft project)? No undo.'))) return
     try {
       await api(`/projects/${activeCoverId}`, { method: 'DELETE' })
       setGenJob(null)
@@ -194,7 +196,7 @@ export function CoverPage() {
   const reviewing = !!prepResult
   const summaryBits = prepResult
     ? [
-        prepResult.summary.keys?.[0]?.key && `原调 ${prepResult.summary.keys[0].key}`,
+        prepResult.summary.keys?.[0]?.key && `${t('原调', 'Original key')} ${prepResult.summary.keys[0].key}`,
         prepResult.summary.tempo && `${prepResult.summary.tempo} BPM`,
         prepResult.language,
       ].filter(Boolean)
@@ -205,7 +207,7 @@ export function CoverPage() {
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Mic2 size={15} /> 翻唱 / 风格重制</span>}
-          desc="老歌 → 分离人声 → 扒旋律谱 → 转歌词 → 校对后换风格重唱"
+          desc={t('老歌 → 分离人声 → 扒旋律谱 → 转歌词 → 校对后换风格重唱', 'Old song → split vocals → score the melody → ASR lyrics → proofread, then re-sing in a new style')}
         />
         <CardBody className="space-y-4">
           <input ref={fileRef} type="file" accept="audio/*" aria-label="上传翻唱歌曲" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; pick(f) }} />
@@ -214,10 +216,10 @@ export function CoverPage() {
             className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-8 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
           >
             {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-            {file ? file.name : sourceName || '点击选择要翻唱的歌曲'}
-            <span className="text-xs text-zinc-600">准备阶段约 1~3 分钟(分轨 + 扒谱 + 歌词识别)</span>
+            {file ? file.name : sourceName || t('点击选择要翻唱的歌曲', 'Click to pick a song to cover')}
+            <span className="text-xs text-zinc-600">{t('准备阶段约 1~3 分钟(分轨 + 扒谱 + 歌词识别)', 'Prep takes ~1–3 min (stems + transcription + lyrics ASR)')}</span>
           </button>
-          <UploadPicker onPick={applyUpload} hint="选已翻唱的素材直接载入上次结果,没翻唱过的自动开始分析" />
+          <UploadPicker onPick={applyUpload} hint={t('选已翻唱的素材直接载入上次结果,没翻唱过的自动开始分析', 'Covered assets load their last result; uncovered ones start analyzing automatically')} />
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
         </CardBody>
       </Card>
@@ -234,11 +236,11 @@ export function CoverPage() {
             <Card>
               <CardBody className="flex flex-wrap items-end gap-3">
                 <div className="min-w-64 flex-1">
-                  <Label hint={`共 ${coverVersions.length} 次,当前显示最后一次`}>历史翻唱版本</Label>
+                  <Label hint={t(`共 ${coverVersions.length} 次,当前显示最后一次`, `${coverVersions.length} runs; showing the latest`)}>{t('历史翻唱版本', 'Past cover versions')}</Label>
                   <Select aria-label="选择翻唱版本" value={activeCoverId} disabled={!!prepareJob && !prepDone} onChange={(e) => pickCover(e.target.value)}>
                     {coverVersions.map((c) => (
                       <option key={c.project_id} value={c.project_id}>
-                        {new Date(c.created_at * 1000).toLocaleString()} · {c.title}{c.result ? '' : ' · 结果已失效'}
+                        {new Date(c.created_at * 1000).toLocaleString()} · {c.title}{c.result ? '' : ` · ${t('结果已失效', 'result expired')}`}
                       </option>
                     ))}
                   </Select>
@@ -247,13 +249,13 @@ export function CoverPage() {
                   variant="outline" size="sm" className="h-9" disabled={!!prepareJob && !prepDone || !pickedUpload}
                   onClick={() => pickedUpload && reuseUpload(pickedUpload)} title="对这个素材重新跑一次分析"
                 >
-                  重新分析
+                  {t('重新分析', 'Re-analyze')}
                 </Button>
                 <Button
                   variant="ghost" size="sm" className="h-9 text-zinc-500 hover:text-red-400" disabled={!!prepareJob && !prepDone || !activeCoverId}
                   onClick={deleteCover} title="删除当前显示的翻唱版本(不提供找回)"
                 >
-                  删除此版本
+                  {t('删除此版本', 'Delete version')}
                 </Button>
               </CardBody>
             </Card>
@@ -273,8 +275,8 @@ export function CoverPage() {
             <Card>
               <CardHeader
                 title="目标风格"
-                desc="描述重唱版本的曲风、人声、乐器"
-                right={<Badge status="queued">{prepResult.language === 'Chinese' ? '中文' : '其他语言'}</Badge>}
+                desc={t('描述重唱版本的曲风、人声、乐器', 'Describe the style, voice and instruments for the new version')}
+                right={<Badge status="queued">{prepResult.language === 'Chinese' ? t('中文', 'Chinese') : t('其他语言', 'Other language')}</Badge>}
               />
               <CardBody className="space-y-3">
                 <Textarea aria-label="目标风格" rows={3} value={style} onChange={(e) => setStyle(e.target.value)} placeholder="例:Jazz-funk, warm lead vocal, Rhodes piano…" />
@@ -285,7 +287,7 @@ export function CoverPage() {
                     </button>
                   ))}
                 </div>
-                <Label hint="ASR 原文已预填,改成带 [Verse] / [Chorus] 的分节歌词再生成">歌词校对</Label>
+                <Label hint={t('ASR 原文已预填,改成带 [Verse] / [Chorus] 的分节歌词再生成', 'ASR text is prefilled — split it into [Verse] / [Chorus] sections before generating')}>{t('歌词校对', 'Lyrics proofread')}</Label>
                 <Textarea aria-label="歌词" rows={10} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="font-mono text-[13px]" />
                 <div className="flex items-end gap-3">
                   <div className="w-40">
@@ -294,7 +296,7 @@ export function CoverPage() {
                   </div>
                   <Button className="flex-1" disabled={!style.trim() || !lyrics.trim() || !!genJob && !genDone} onClick={startCover}>
                     {genJob && !genDone ? <Loader2 className="animate-spin" size={15} /> : <Mic2 size={15} />}
-                    {genJob && !genDone ? '重唱生成中…' : '生成翻唱'}
+                    {genJob && !genDone ? t('重唱生成中…', 'Generating cover…') : t('生成翻唱', 'Generate cover')}
                   </Button>
                 </div>
               </CardBody>
@@ -311,7 +313,7 @@ export function CoverPage() {
               <CardHeader
                 title="翻唱完成"
                 desc={`${genResult.duration}s · seed ${genResult.seed}`}
-                right={<Link to={`/projects/${genResult.project_id}`} className="text-xs text-emerald-400 hover:underline">打开项目 →</Link>}
+                right={<Link to={`/projects/${genResult.project_id}`} className="text-xs text-emerald-400 hover:underline">{t('打开项目 →', 'Open project →')}</Link>}
               />
               <CardBody>
                 <AudioPlayer url={genResult.urls.audio} />

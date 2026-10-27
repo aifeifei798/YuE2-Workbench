@@ -9,6 +9,7 @@ import { AudioPlayer } from '@/components/AudioPlayer'
 import { WaveRegionsPlayer, type WaveRegionsHandle } from '@/components/WaveRegionsPlayer'
 import { Badge, Button, Card, CardBody, CardHeader, Input, Page, Textarea } from '@/components/ui'
 import { SelectMenu } from '@/components/SelectMenu'
+import { useT } from '@/lib/i18n'
 
 type PunchCandidate = { idx: number; seed: number; audition_url: string }
 type PunchResult = { punch_id: string; region: [number, number]; seconds: number; snapped?: boolean; candidates: PunchCandidate[] }
@@ -46,6 +47,7 @@ type EvalResult = {
 }
 
 export function ProjectPage() {
+  const t = useT()
   const { id } = useParams()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [selected, setSelected] = useState<VersionOut | null>(null)
@@ -101,8 +103,8 @@ export function ProjectPage() {
     return () => clearInterval(t)
   }, [load])
 
-  if (loadError && !project) return <div className="p-8 text-sm text-red-400">加载失败:{loadError}</div>
-  if (!project) return <div className="p-8 text-sm text-zinc-500">加载中…</div>
+  if (loadError && !project) return <div className="p-8 text-sm text-red-400">{t('加载失败:', 'Load failed:')} {loadError}</div>
+  if (!project) return <div className="p-8 text-sm text-zinc-500">{t('加载中…', 'Loading…')}</div>
 
   return (
     <Page>
@@ -122,14 +124,14 @@ export function ProjectPage() {
                 }}
                 className="h-9 w-full max-w-md rounded-lg border border-emerald-500/60 bg-zinc-900 px-3 text-base font-semibold text-zinc-100 focus:outline-none"
               />
-              <Button size="sm" onClick={saveRename}>保存</Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditingTitle(false)}>取消</Button>
+              <Button size="sm" onClick={saveRename}>{t('保存', 'Save')}</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingTitle(false)}>{t('取消', 'Cancel')}</Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <h1 className="truncate text-lg font-semibold">{project.title}</h1>
               <button
-                title="重命名"
+                title={t('重命名', 'Rename')}
                 onClick={startRename}
                 className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-emerald-400"
               >
@@ -192,12 +194,13 @@ function VersionList({
   selected: VersionOut | null
   onSelect: (v: VersionOut) => void
 }) {
+  const t = useT()
   const ordered = treeOrder(project.versions)
   return (
     <Card>
-      <CardHeader title="版本" desc={`${project.versions.length} 个 · 按谱系排列,点击载入工作区`} />
+      <CardHeader title={t('版本', 'Versions')} desc={`${project.versions.length} ${t('个 · 按谱系排列,点击载入工作区', '· by lineage; click to load the workspace')}`} />
       <CardBody className="space-y-1 p-2">
-        {ordered.length === 0 && <div className="p-3 text-xs text-zinc-500">暂无版本</div>}
+        {ordered.length === 0 && <div className="p-3 text-xs text-zinc-500">{t('暂无版本', 'No versions yet')}</div>}
         {ordered.map(({ v, depth }) => (
           <button
             key={v.id}
@@ -235,6 +238,7 @@ function Workspace({
   onRefresh: () => void
   onSelect: (v: VersionOut | null) => void
 }) {
+  const t = useT()
   const [region, setRegion] = useState<[number, number] | null>(null)
   const [duration, setDuration] = useState(0)
   const [auditioning, setAuditioning] = useState(false)
@@ -383,7 +387,7 @@ function Workspace({
           })
           .catch(() => {})
       } else {
-        alert(res.note ?? '歌词对齐不可用')
+        alert(res.note ?? t('歌词对齐不可用', 'Lyric alignment unavailable'))
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -529,7 +533,7 @@ function Workspace({
     return (
       <Card>
         <CardBody className="text-sm text-zinc-500">
-          {version ? `版本 v${version.v} 状态:${version.status}` : '从左侧选择一个版本进入工作区'}
+          {version ? `${t('版本', 'Version')} v${version.v} · ${version.status}` : t('从左侧选择一个版本进入工作区', 'Pick a version on the left to enter the workspace')}
         </CardBody>
       </Card>
     )
@@ -580,7 +584,7 @@ function Workspace({
         seed: (cfg.seed as number) ?? null,
         abc: version.abc,
         source: 'relyrics',
-        note: '改词重唱',
+        note: t('改词重唱', 'new-lyrics re-sing'),
       }),
     })
       .then((r) => setRerenderJob(r.job_id))
@@ -609,7 +613,7 @@ function Workspace({
         seed: (cfg.seed as number) ?? null,
         abc: abcDraft,
         source: 'rerender',
-        note: '改谱重渲染',
+        note: t('改谱重渲染', 'score re-render'),
       }),
     })
       .then((r) => setRerenderJob(r.job_id))
@@ -628,10 +632,10 @@ function Workspace({
 
   function forkVersion() {
     if (!version) return
-    if (!window.confirm(`复制 v${version.v} 为新版本?`)) return
+    if (!window.confirm(t(`复制 v${version.v} 为新版本?`, `Fork v${version.v} as a new version?`))) return
     api<{ version_id: string }>(`/versions/${version.id}/fork`, {
       method: 'POST',
-      body: JSON.stringify({ note: `自 v${version.v} 复制` }),
+      body: JSON.stringify({ note: `${t('自', 'from')} v${version.v}` }),
     })
       .then((r) => {
         // wait for this exact version instead of guessing by source
@@ -643,7 +647,7 @@ function Workspace({
 
   function deleteVersion() {
     if (!version) return
-    if (!window.confirm(`删除 v${version.v}?音频与全部工件将一并删除,不可恢复。`)) return
+    if (!window.confirm(t(`删除 v${version.v}?音频与全部工件将一并删除,不可恢复。`, `Delete v${version.v}? Audio and all artifacts go with it. No undo.`))) return
     api(`/versions/${version.id}`, { method: 'DELETE' })
       .then(() => {
         onSelect(null)
@@ -656,7 +660,7 @@ function Workspace({
     if (!version || !abcDraft.trim()) return
     api(`/versions/${version.id}/abc`, {
       method: 'PUT',
-      body: JSON.stringify({ abc: abcDraft, note: '工作区草稿' }),
+      body: JSON.stringify({ abc: abcDraft, note: t('工作区草稿', 'workspace draft') }),
     })
       .then(() => {
         setSavedDraft(true)
@@ -692,7 +696,7 @@ function Workspace({
       }).catch((e) => alert(String(e)))
       return
     }
-    if (!window.confirm('该版本还没扒过谱,现在跑一次 SheetSage2 转录?(约 30~60s)')) return
+    if (!window.confirm(t('该版本还没扒过谱,现在跑一次 SheetSage2 转录?(约 30~60s)', 'This version has no transcription yet — run SheetSage2 now? (~30–60s)'))) return
     api<{ job_id: string }>('/transcribe', { method: 'POST', body: JSON.stringify({ version_id: version.id }) })
       .then((r) => setTransJob(r.job_id))
       .catch((e) => alert(String(e)))
@@ -729,11 +733,11 @@ function Workspace({
     <div className="space-y-5">
       <Card>
         <CardHeader
-          title={`工作区 · v${version.v}`}
+          title={`${t('工作区', 'Workspace')} · v${version.v}`}
           desc={`${Math.round(version.duration ?? 0)}s · ${version.note || version.source}`}
           right={
             <button className="text-xs text-zinc-400 hover:text-emerald-400" onClick={() => setAbMode((s) => !s)}>
-              {abMode ? '退出 A/B' : 'A/B 对比'}
+              {abMode ? t('退出 A/B', 'Exit A/B') : t('A/B 对比', 'A/B compare')}
             </button>
           }
         />
@@ -754,11 +758,11 @@ function Workspace({
                 选区 {region[0].toFixed(1)}s – {region[1].toFixed(1)}s({(region[1] - region[0]).toFixed(1)}s)
               </span>
             ) : (
-              <span>在波形上拖选一段(≥1s)</span>
+              <span>{t('在波形上拖选一段(≥1s)', 'Drag-select a region on the waveform (≥1s)')}</span>
             )}
             <span className="flex-1" />
             <Button size="sm" variant="outline" disabled={!region} onClick={audition}>
-              {auditioning ? <Square size={13} /> : <Play size={13} />} {auditioning ? '停止试听' : '试听选区'}
+              {auditioning ? <Square size={13} /> : <Play size={13} />} {auditioning ? t('停止试听', 'Stop audition') : t('试听选区', 'Audition region')}
             </Button>
             <Button
               size="sm"
@@ -773,36 +777,36 @@ function Workspace({
                 })
               }
             >
-              <Repeat size={13} /> 循环选区
+              <Repeat size={13} /> {t('循环选区', 'Loop')}
             </Button>
             <span className="flex items-center gap-1">
               <SelectMenu
                 className="w-24"
                 value={String(nCand)}
                 onChange={(v) => setNCand(Number(v))}
-                options={[2, 3, 4, 6].map((n) => ({ value: String(n), label: `${n} 候选` }))}
+                options={[2, 3, 4, 6].map((n) => ({ value: String(n), label: `${n} ${t('候选', 'candidates')}` }))}
               />
               <Button size="sm" disabled={!region || !!punchJob && !punchStream.done} onClick={() => startPunch(nCand)}>
-                <Scissors size={13} /> 挖补选区
+                <Scissors size={13} /> {t('挖补选区', 'Punch')}
               </Button>
             </span>
             <Button size="sm" disabled={!!punchJob && !punchStream.done} onClick={tailSing}>
-              <Repeat size={13} /> 尾段重唱
+              <Repeat size={13} /> {t('尾段重唱', 'Re-sing tail')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => { setShowRelLyrics((s) => !s); setRelLyrics(String(cfg.lyrics ?? '')) }}>
-              <Repeat size={13} /> 改词重唱
+              <Repeat size={13} /> {t('改词重唱', 'New lyrics')}
             </Button>
             <Button size="sm" variant="outline" onClick={loadTranscription}>
-              {transJob && !transStream.done ? <Loader2 className="animate-spin" size={13} /> : <FileSearch size={13} />} 转录
+              {transJob && !transStream.done ? <Loader2 className="animate-spin" size={13} /> : <FileSearch size={13} />} {t('转录', 'Transcribe')}
             </Button>
-            <Button size="sm" variant="outline" onClick={loadLrc} title="ASR 歌词对齐,生成带时间轴的 .lrc">
+            <Button size="sm" variant="outline" onClick={loadLrc} title={t('ASR 歌词对齐,生成带时间轴的 .lrc', 'ASR lyric alignment — generates a timed .lrc')}>
               {lyricJob && !lyricStream.done ? <Loader2 className="animate-spin" size={13} /> : <Mic2 size={13} />} LRC
             </Button>
             <Button size="sm" variant="outline" onClick={loadStems}>
-              {stemJob && !stemStream.done ? <Loader2 className="animate-spin" size={13} /> : <AudioLines size={13} />} 分轨
+              {stemJob && !stemStream.done ? <Loader2 className="animate-spin" size={13} /> : <AudioLines size={13} />} {t('分轨', 'Stems')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => { setShowAbc((s) => !s); setAbcDraft(detail?.abc_draft?.abc ?? version.abc ?? '') }}>
-              <PencilRuler size={13} /> ABC 编辑{detail?.abc_draft ? ' ·' : ''}
+              <PencilRuler size={13} /> {t('ABC 编辑', 'ABC edit')}{detail?.abc_draft ? ' ·' : ''}
             </Button>
           </div>
         </CardBody>
@@ -813,9 +817,9 @@ function Workspace({
       {punchStream.done && punchResult && (
         <Card>
           <CardHeader
-            title={`候选片段(${punchResult.seconds}s)`}
-            desc={"同一乐谱内容的不同演绎,试听后采用" + (punchResult.snapped ? " · 已对齐小节线" : "")}
-            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setPunchJob(null)}>收起</button>}
+            title={t(`候选片段(${punchResult.seconds}s)`, `Candidates (${punchResult.seconds}s)`)}
+            desc={t("同一乐谱内容的不同演绎,试听后采用", "Alternative takes of the same score — audition and adopt") + (punchResult.snapped ? t(" · 已对齐小节线", " · bar-aligned") : "")}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setPunchJob(null)}>{t('收起', 'Collapse')}</button>}
           />
           <CardBody className="space-y-2">
             {punchResult.candidates.map((c) => (
@@ -824,7 +828,7 @@ function Workspace({
                 <span className="w-24 shrink-0 font-mono text-[11px] text-zinc-500">seed {c.seed}</span>
                 <div className="min-w-0 flex-1"><AudioPlayer url={c.audition_url} height={36} /></div>
                 <Button size="sm" disabled={!!applyJob && !applyStream.done} onClick={() => adopt(c.idx)}>
-                  {applyJob && !applyStream.done ? <Loader2 className="animate-spin" size={13} /> : null} 采用拼回
+                  {applyJob && !applyStream.done ? <Loader2 className="animate-spin" size={13} /> : null} {t('采用拼回', 'Adopt & apply')}
                 </Button>
               </div>
             ))}
@@ -832,15 +836,15 @@ function Workspace({
         </Card>
       )}
 
-      {applyJob && !applyStream.done && <JobPanel jobId={applyJob} events={applyStream.events} done={applyStream.done} title="拼回新版本" />}
+      {applyJob && !applyStream.done && <JobPanel jobId={applyJob} events={applyStream.events} done={applyStream.done} title={t('拼回新版本', 'Apply punch')} />}
 
       {showRelLyrics && (
         <Card>
-          <CardHeader title="改词重唱" desc="同 seed + 同乐谱 + 新歌词:旋律内容不变,整曲重新演绎(prefix 全局条件,任何改动都会重塑整首演唱)" />
+          <CardHeader title={t('改词重唱', 'New-lyrics re-sing')} desc={t('同 seed + 同乐谱 + 新歌词:旋律内容不变,整曲重新演绎(prefix 全局条件,任何改动都会重塑整首演唱)', 'Same seed + score + new lyrics: melody unchanged, whole performance re-sung (prefix is a global condition — any change reshapes the whole take)')} />
           <CardBody className="space-y-3">
             <Textarea rows={9} value={relLyrics} onChange={(e) => setRelLyrics(e.target.value)} className="font-mono text-[13px]" />
             <Button disabled={!relLyrics.trim() || !!rerenderJob && !rerenderStream.done} onClick={startRelLyrics}>
-              {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : <Repeat size={14} />} 以原 seed 重唱
+              {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : <Repeat size={14} />} {t('以原 seed 重唱', 'Re-sing with original seed')}
             </Button>
           </CardBody>
         </Card>
@@ -848,9 +852,9 @@ function Workspace({
 
       {showStems && stems && (
         <Card>
-          <CardHeader title="分轨试听" desc="HTDemucs 四轨,可分别独听(重渲染仍为整曲行为)" />
+          <CardHeader title={t('分轨试听', 'Stem audition')} desc={t('HTDemucs 四轨,可分别独听(重渲染仍为整曲行为)', 'HTDemucs four stems, solo each (re-rendering still works on the full mix)')} />
           <CardBody className="space-y-2">
-            {[['vocals', '人声'], ['drums', '鼓'], ['bass', '贝斯'], ['other', '其他']].map(([k, label]) =>
+            {[['vocals', t('人声', 'Vocals')], ['drums', t('鼓', 'Drums')], ['bass', t('贝斯', 'Bass')], ['other', t('其他', 'Other')]].map(([k, label]) =>
               stems[k] ? (
                 <div key={k} className="flex items-center gap-3">
                   <span className="w-10 shrink-0 text-xs text-zinc-400">{label}</span>
@@ -865,8 +869,8 @@ function Workspace({
       {showTrans && trans && (
         <Card>
           <CardHeader
-            title="版本转录"
-            desc={[trans.summary.keys?.[0]?.key && `调性 ${trans.summary.keys[0].key}`, trans.summary.tempo && `${trans.summary.tempo} BPM`, `${trans.n_beats} 拍 / ${trans.n_downbeats} 强拍`].filter(Boolean).join(' · ')}
+            title={t('版本转录', 'Version transcription')}
+            desc={[trans.summary.keys?.[0]?.key && `${t('调性', 'Key')} ${trans.summary.keys[0].key}`, trans.summary.tempo && `${trans.summary.tempo} BPM`, `${trans.n_beats} ${t('拍', 'beats')} / ${trans.n_downbeats} ${t('强拍', 'downbeats')}`].filter(Boolean).join(' · ')}
           />
           <CardBody className="space-y-3">
             <Notation abc={trans.abc} height={240} />
@@ -879,16 +883,16 @@ function Workspace({
         </Card>
       )}
 
-      {transJob && !transStream.done && <JobPanel jobId={transJob} events={transStream.events} done={transStream.done} title="扒谱中" />}
-      {stemJob && !stemStream.done && <JobPanel jobId={stemJob} events={stemStream.events} done={stemStream.done} title="分离分轨" />}
-      {lyricJob && !lyricStream.done && <JobPanel jobId={lyricJob} events={lyricStream.events} done={lyricStream.done} title="歌词对齐" />}
+      {transJob && !transStream.done && <JobPanel jobId={transJob} events={transStream.events} done={transStream.done} title={t('扒谱中', 'Transcribing')} />}
+      {stemJob && !stemStream.done && <JobPanel jobId={stemJob} events={stemStream.events} done={stemStream.done} title={t('分离分轨', 'Separating stems')} />}
+      {lyricJob && !lyricStream.done && <JobPanel jobId={lyricJob} events={lyricStream.events} done={lyricStream.done} title={t('歌词对齐', 'Lyric alignment')} />}
 
       {showLrc && lrcText && (
         <Card>
           <CardHeader
-            title="LRC 歌词"
-            desc={`${lrcLines.length} 行 · 时间轴来自 ASR 对齐,按停顿分行`}
-            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setShowLrc(false)}>收起</button>}
+            title={t('LRC 歌词', 'LRC lyrics')}
+            desc={`${lrcLines.length} ${t('行', 'lines')} · ${t('时间轴来自 ASR 对齐,按停顿分行', 'timings from ASR alignment, split on pauses')}`}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setShowLrc(false)}>{t('收起', 'Collapse')}</button>}
           />
           <CardBody className="max-h-72 space-y-0.5 overflow-auto">
             {lrcLines.map((l, i) => (
@@ -906,33 +910,33 @@ function Workspace({
       {showAbc && (
         <Card className="scroll-mt-16" id="abc-editor">
           <CardHeader
-            title="ABC 乐谱编辑"
+            title={t('ABC 乐谱编辑', 'ABC score editor')}
             desc={
               detail?.abc_draft
-                ? `已载入未渲染草稿(${new Date(detail.abc_draft.updated_at * 1000).toLocaleString()}保存)`
-                : "改谱后整曲重渲染:新谱严格约束旋律与和弦,演绎为全新一版(挖补才是局部替换)"
+                ? t(`已载入未渲染草稿(${new Date(detail.abc_draft.updated_at * 1000).toLocaleString()}保存)`, `Unrendered draft loaded (saved ${new Date(detail.abc_draft.updated_at * 1000).toLocaleString()})`)
+                : t("改谱后整曲重渲染:新谱严格约束旋律与和弦,演绎为全新一版(挖补才是局部替换)", "Re-render the whole song from the edited score: the new score strictly constrains melody & chords into a fresh take (punching is the local variant)")
             }
           />
           <CardBody className="space-y-3">
             <Textarea rows={12} value={abcDraft} onChange={(e) => setAbcDraft(e.target.value)} className="font-mono text-[12px]" />
             <Notation abc={abcDraft} height={260} />
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={!abcDraft.trim() || abcDraft === version.abc && !detail?.abc_draft} onClick={saveDraft} title="把当前编辑保存为草稿,刷新不丢">
-                {savedDraft ? '草稿已保存' : '保存草稿'}
+              <Button variant="outline" disabled={!abcDraft.trim() || abcDraft === version.abc && !detail?.abc_draft} onClick={saveDraft} title={t('把当前编辑保存为草稿,刷新不丢', "Save the current edit as a draft — survives reloads")}>
+                {savedDraft ? t('草稿已保存', 'Draft saved') : t('保存草稿', 'Save draft')}
               </Button>
               <Button disabled={!!rerenderJob && !rerenderStream.done || !abcDraft.trim()} onClick={rerenderFull}>
-                {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : null} 重渲染整曲
+                {rerenderJob && !rerenderStream.done ? <Loader2 className="animate-spin" size={14} /> : null} {t('重渲染整曲', 'Re-render song')}
               </Button>
             </div>
           </CardBody>
         </Card>
       )}
 
-      {rerenderJob && !rerenderStream.done && <JobPanel jobId={rerenderJob} events={rerenderStream.events} done={rerenderStream.done} title="改谱重渲染" />}
+      {rerenderJob && !rerenderStream.done && <JobPanel jobId={rerenderJob} events={rerenderStream.events} done={rerenderStream.done} title={t('改谱重渲染', 'Score re-render')} />}
 
       {abMode && (
         <Card>
-          <CardHeader title="A / B 对比" desc="选两个版本上下对听" />
+          <CardHeader title={t('A / B 对比', 'A / B compare')} desc={t('选两个版本上下对听', "Pick two versions and compare them back to back")} />
           <CardBody className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               {[['A', abA, setAbA] as const, ['B', abB, setAbB] as const].map(([label, val, set]) => (
@@ -941,7 +945,7 @@ function Workspace({
                     value={val ?? ''}
                     onChange={(v) => set(v || null)}
                     options={[
-                      { value: '', label: `选择版本 ${label}` },
+                      { value: '', label: `${t('选择版本', 'Pick version')} ${label}` },
                       ...project.versions.filter((v) => v.status === 'done' && v.urls).map((v) => ({ value: v.id, label: `v${v.v} · ${v.note || v.source}` })),
                     ]}
                   />
@@ -957,14 +961,14 @@ function Workspace({
             {abA && abB && (
               <div className="space-y-2">
                 <Button size="sm" variant="outline" disabled={!!duelJob && !duelStream.done} onClick={runDuel}>
-                  {duelJob && !duelStream.done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />} 自动评测对比
+                  {duelJob && !duelStream.done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />} {t('自动评测对比', 'Auto-evaluate & compare')}
                 </Button>
-                {duelJob && !duelStream.done && <JobPanel jobId={duelJob} events={duelStream.events} done={duelStream.done} title="评测" />}
+                {duelJob && !duelStream.done && <JobPanel jobId={duelJob} events={duelStream.events} done={duelStream.done} title={t('评测', 'Evaluation')} />}
                 {duelStream.done && duelResult?.duel && (
                   <div className="overflow-hidden rounded-lg border border-zinc-800">
                     <table className="w-full text-xs">
                       <thead className="bg-zinc-900 text-zinc-400">
-                        <tr><th className="px-2 py-1.5 text-left">指标</th><th className="px-2 py-1.5">A</th><th className="px-2 py-1.5">B</th><th className="px-2 py-1.5">占优</th></tr>
+                        <tr><th className="px-2 py-1.5 text-left">{t('指标', 'Metric')}</th><th className="px-2 py-1.5">A</th><th className="px-2 py-1.5">B</th><th className="px-2 py-1.5">{t('占优', 'Favors')}</th></tr>
                       </thead>
                       <tbody>
                         {duelResult.duel.rows.map((r, i) => (
@@ -978,7 +982,7 @@ function Workspace({
                       </tbody>
                     </table>
                     <div className="border-t border-zinc-800 bg-zinc-900/60 px-2 py-1.5 text-[11px] text-zinc-400">
-                      自动倾向:<span className="text-emerald-400">{duelResult.duel.auto_suggestion}</span>(最终以人耳对听为准)
+                      {t('自动倾向:', 'Auto leans toward:')}<span className="text-emerald-400">{duelResult.duel.auto_suggestion}</span>({t('最终以人耳对听为准', 'ears have the final say')})
                     </div>
                   </div>
                 )}
@@ -990,24 +994,24 @@ function Workspace({
 
       <Card>
         <CardHeader
-          title={<span className="flex items-center gap-2"><Bot size={15} /> AI 改谱</span>}
-          desc="自然语言指令 → 工具化改谱(移调/爵士和声/变速)→ diff 人审 → 重渲染"
-          right={<button className="text-xs text-zinc-400 hover:text-emerald-400" onClick={() => setShowAgent((s) => !s)}>{showAgent ? '收起' : '展开'}</button>}
+          title={<span className="flex items-center gap-2"><Bot size={15} /> {t('AI 改谱', 'AI score edit')}</span>}
+          desc={t('自然语言指令 → 工具化改谱(移调/爵士和声/变速)→ diff 人审 → 重渲染', 'Natural-language instruction → tool-based score edit (transpose / jazz harmony / tempo) → human-reviewed diff → re-render')}
+          right={<button className="text-xs text-zinc-400 hover:text-emerald-400" onClick={() => setShowAgent((s) => !s)}>{showAgent ? t('收起', 'Collapse') : t('展开', 'Expand')}</button>}
         />
         {showAgent && (
           <CardBody className="space-y-3">
             <div className="flex gap-2">
               <Input
                 value={agentInstruction}
-                placeholder="例:整体升高一个全音,和弦加爵士七和弦,速度 110"
+                placeholder={t('例:整体升高一个全音,和弦加爵士七和弦,速度 110', 'e.g. up a whole tone, add jazz sevenths, tempo 110')}
                 onChange={(e) => setAgentInstruction(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && runAgent()}
               />
               <Button disabled={!agentInstruction.trim() || !!agentJob && !agentStream.done} onClick={runAgent}>
-                {agentJob && !agentStream.done ? <Loader2 className="animate-spin" size={14} /> : <Bot size={14} />} 执行
+                {agentJob && !agentStream.done ? <Loader2 className="animate-spin" size={14} /> : <Bot size={14} />} {t('执行', 'Run')}
               </Button>
             </div>
-            {agentJob && !agentStream.done && <JobPanel jobId={agentJob} events={agentStream.events} done={agentStream.done} title="改谱规划" />}
+            {agentJob && !agentStream.done && <JobPanel jobId={agentJob} events={agentStream.events} done={agentStream.done} title={t('改谱规划', 'Score edit planning')} />}
             {agentStream.done && agentResult && (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1028,12 +1032,12 @@ function Workspace({
                   <summary className="cursor-pointer select-none">diff</summary>
                   <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-zinc-950 p-2 font-mono text-[11px]">{agentResult.diff}</pre>
                 </details>
-                <Button size="sm" onClick={adoptProposal}>采纳到编辑器(可再手改后重渲染)</Button>
+                <Button size="sm" onClick={adoptProposal}>{t('采纳到编辑器(可再手改后重渲染)', 'Adopt into editor (edit further, then re-render)')}</Button>
               </div>
             )}
             {showAgent && agentHist.length > 0 && (
               <details className="text-xs text-zinc-500">
-                <summary className="cursor-pointer select-none">历史指令({agentHist.length})</summary>
+                <summary className="cursor-pointer select-none">{t('历史指令', 'Instruction history')} ({agentHist.length})</summary>
                 <div className="mt-2 space-y-1">
                   {agentHist.map((h, i) => (
                     <div key={i} className="rounded-lg bg-zinc-950 px-2 py-1.5">
@@ -1048,38 +1052,38 @@ function Workspace({
         )}
       </Card>
 
-      {libJob && !libStream.done && <JobPanel jobId={libJob} events={libStream.events} done={libStream.done} title="加入音乐库" />}
+      {libJob && !libStream.done && <JobPanel jobId={libJob} events={libStream.events} done={libStream.done} title={t('加入音乐库', 'Add to library')} />}
       {libStream.done && libStream.job?.result && (
         <Card>
           <CardBody className="flex items-center justify-between text-xs text-zinc-400">
-            <span>已入库:<span className="text-zinc-200">{String((libStream.job.result as Record<string, unknown>).title ?? '')}</span></span>
-            <Link to="/library" className="text-emerald-400 hover:underline">去音乐库查看 →</Link>
+            <span>{t('已入库:', 'Added to library:')}<span className="text-zinc-200">{String((libStream.job.result as Record<string, unknown>).title ?? '')}</span></span>
+            <Link to="/library" className="text-emerald-400 hover:underline">{t('去音乐库查看 →', 'Open library →')}</Link>
           </CardBody>
         </Card>
       )}
 
       <Card>
-        <CardHeader title="工件" />
+        <CardHeader title={t('工件', 'Artifacts')} />
         <CardBody className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
           <a href={version.urls.audio} download className="hover:text-emerald-400">FLAC</a>
-          <a href={`/api/versions/${version.id}/export/mp3`} download className="hover:text-emerald-400" title="MP3 转码(192k)">MP3</a>
+          <a href={`/api/versions/${version.id}/export/mp3`} download className="hover:text-emerald-400" title={t('MP3 转码(192k)', 'MP3 transcode (192k)')}>MP3</a>
           {detail?.has_stems ? (
-            <a href={`/api/versions/${version.id}/export/stems.zip`} download className="hover:text-emerald-400">分轨 ZIP</a>
+            <a href={`/api/versions/${version.id}/export/stems.zip`} download className="hover:text-emerald-400">{t('分轨 ZIP', 'Stems ZIP')}</a>
           ) : (
-            <span className="text-zinc-600" title="先跑一次分轨">分轨 ZIP</span>
+            <span className="text-zinc-600" title={t('先跑一次分轨', 'Run stem separation first')}>{t('分轨 ZIP', 'Stems ZIP')}</span>
           )}
-          <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title="整曲 + ABC + 转录 MIDI + 分轨打包">DAW 包</a>
-          <a href={`/api/versions/${version.id}/export/score.pdf`} target="_blank" rel="noreferrer" className="hover:text-emerald-400" title="服务端渲染乐谱 PDF">乐谱 PDF</a>
-          {version.urls?.lrc && <a href={version.urls.lrc} download className="hover:text-emerald-400">LRC</a>}
+          <a href={`/api/versions/${version.id}/export/daw`} download className="hover:text-emerald-400" title={t('整曲 + ABC + 转录 MIDI + 分轨打包', 'Song + ABC + transcription MIDI + stems bundle')}>{t('DAW 包', 'DAW bundle')}</a>
+          <a href={`/api/versions/${version.id}/export/score.pdf`} target="_blank" rel="noreferrer" className="hover:text-emerald-400" title={t('服务端渲染乐谱 PDF', 'Server-rendered score PDF')}>{t('乐谱 PDF', 'Score PDF')}</a>
+          {version.urls?.lrc && <a href={version.urls.lrc} download className="hover:text-emerald-400">{t('LRC', 'LRC')}</a>}
           {detail?.has_stems && (
-            <a href={`/api/versions/${version.id}/export/instrumental`} download className="hover:text-emerald-400" title="去人声伴奏(鼓+贝斯+其他混音)">伴奏</a>
+            <a href={`/api/versions/${version.id}/export/instrumental`} download className="hover:text-emerald-400" title={t('去人声伴奏(鼓+贝斯+其他混音)', 'Karaoke backing (drums + bass + other mix)')}>{t('伴奏', 'Backing')}</a>
           )}
           {detail?.has_cover && version.urls?.cover ? (
-            <a href={`${version.urls.cover}?t=${detail.abc_draft?.updated_at ?? ''}`} target="_blank" rel="noreferrer" className="hover:text-emerald-400">封面</a>
+            <a href={`${version.urls.cover}?t=${detail.abc_draft?.updated_at ?? ''}`} target="_blank" rel="noreferrer" className="hover:text-emerald-400">{t('封面', 'Cover')}</a>
           ) : (
-            <button className="hover:text-emerald-400" title="生成程序化封面(渐变 + 真实波形)" onClick={genCover}>{coverBusy ? '生成中…' : '封面'}</button>
+            <button className="hover:text-emerald-400" title={t('生成程序化封面(渐变 + 真实波形)', 'Generate procedural cover (gradient + real waveform)')} onClick={genCover}>{coverBusy ? t('生成中…', 'Generating…') : '封面'}</button>
           )}
-          <a href={`/api/versions/${version.id}/export/release`} download className="font-medium text-emerald-400/90 hover:text-emerald-300" title="发布包:整曲 FLAC+MP3 + 封面 + 歌词/LRC + ABC">发布包</a>
+          <a href={`/api/versions/${version.id}/export/release`} download className="font-medium text-emerald-400/90 hover:text-emerald-300" title={t('发布包:整曲 FLAC+MP3 + 封面 + 歌词/LRC + ABC', 'Release: song FLAC+MP3 + cover + lyrics/LRC + ABC')}>{t('发布包', 'Release bundle')}</a>
           <button
             className="hover:text-emerald-400"
             onClick={() => {
@@ -1088,19 +1092,19 @@ function Workspace({
               setTimeout(() => document.getElementById('abc-editor')?.scrollIntoView({ behavior: 'smooth' }), 80)
             }}
           >
-            ABC 查看/编辑
+            {t('ABC 查看/编辑', 'ABC view / edit')}
           </button>
-          <a href={version.urls.latents} download className="hover:text-emerald-400">隐变量</a>
-          <a href={version.urls.semantic} download className="hover:text-emerald-400">语义 token</a>
-          {cfg.abc_provided ? <span className="text-emerald-400/70">外部乐谱驱动</span> : null}
+          <a href={version.urls.latents} download className="hover:text-emerald-400">{t('隐变量', 'Latents')}</a>
+          <a href={version.urls.semantic} download className="hover:text-emerald-400">{t('语义 token', 'Semantic tokens')}</a>
+          {cfg.abc_provided ? <span className="text-emerald-400/70">{t('外部乐谱驱动', 'externally scored')}</span> : null}
           <span className="flex-1" />
-          <Link to={`/master?v=${version.id}`} title="母带处理(预览 A/B + 导出)">
+          <Link to={`/master?v=${version.id}`} title={t('母带处理(预览 A/B + 导出)', 'Mastering (A/B preview + export)')}>
             <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Disc3 size={14} /></Button>
           </Link>
-          <Button size="sm" variant="ghost" title="复制为新版本" className="h-8 w-8 p-0" onClick={forkVersion}><Copy size={14} /></Button>
-          <Button size="sm" variant="ghost" title="删除此版本" className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400" onClick={deleteVersion}><Trash2 size={14} /></Button>
-          <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done} onClick={addToLibrary} title="把当前版本加入音乐库(自动分析打标)">
-            {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} 加入音乐库
+          <Button size="sm" variant="ghost" title={t('复制为新版本', 'Fork as new version')} className="h-8 w-8 p-0" onClick={forkVersion}><Copy size={14} /></Button>
+          <Button size="sm" variant="ghost" title={t('删除此版本', 'Delete this version')} className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400" onClick={deleteVersion}><Trash2 size={14} /></Button>
+          <Button size="sm" variant="outline" disabled={!!libJob && !libStream.done} onClick={addToLibrary} title={t('把当前版本加入音乐库(自动分析打标)', 'Add this version to the library (auto-tagged)')}>
+            {libJob && !libStream.done ? <Loader2 className="animate-spin" size={13} /> : <LibraryBig size={13} />} {t('加入音乐库', 'Add to library')}
           </Button>
         </CardBody>
       </Card>

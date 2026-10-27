@@ -2,21 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import { Pause, Play } from 'lucide-react'
 import { Button } from './ui'
+import { onThemeChange, wavePalette } from '@/lib/theme'
 
 export function AudioPlayer({ url, height = 72 }: { url: string; height?: number }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WaveSurfer | null>(null)
   const [playing, setPlaying] = useState(false)
   const [ready, setReady] = useState(false)
+  const [themeTick, setThemeTick] = useState(0)
+
+  useEffect(() => onThemeChange(() => setThemeTick((t) => t + 1)), [])
 
   useEffect(() => {
     if (!containerRef.current) return
     const ws = WaveSurfer.create({
       container: containerRef.current,
       height,
-      waveColor: '#52525b',
-      progressColor: '#34d399',
-      cursorColor: '#a1a1aa',
+      ...wavePalette(),
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
@@ -33,7 +35,7 @@ export function AudioPlayer({ url, height = 72 }: { url: string; height?: number
       setReady(false)
       setPlaying(false)
     }
-  }, [url, height])
+  }, [url, height, themeTick])
 
   return (
     <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { AudioLines, Disc3, Ear, FileAudio, FolderOpen, Layers, LibraryBig, LogOut, Mic2, Package, Settings, Sparkles, Trophy } from 'lucide-react'
+import { AudioLines, Disc3, Ear, FileAudio, FolderOpen, Layers, LibraryBig, LogOut, Mic2, Moon, Package, Settings, Sparkles, Sun, Trophy } from 'lucide-react'
 import { ComposePage } from '@/pages/Compose'
 import { ProjectsPage } from '@/pages/Projects'
 import { ProjectPage } from '@/pages/Project'
@@ -17,6 +17,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { JobCenter } from '@/components/JobCenter'
 import { LoginPage } from '@/components/LoginPage'
 import { api } from '@/lib/api'
+import { currentTheme, onThemeChange, setTheme } from '@/lib/theme'
+import { LangProvider, useLang, useT } from '@/lib/i18n'
 
 type Health = { status: string; models: { yue2: { loaded: boolean }; gpu?: { name: string; free_gb: number; total_gb: number } } }
 type Me = { enabled: boolean; role: string | null }
@@ -29,7 +31,37 @@ function useMe(): [Me | null, (m: Me) => void] {
   return [me, setMe]
 }
 
+function LangToggle() {
+  const { lang, setLang } = useLang()
+  return (
+    <button
+      title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+      className="rounded-md px-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-200"
+      onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+    >
+      {lang === 'zh' ? 'EN' : '中'}
+    </button>
+  )
+}
+
+function ThemeToggle() {
+  const t = useT()
+  const [theme, setThemeState] = useState(currentTheme())
+  useEffect(() => onThemeChange(setThemeState), [])
+  const isLight = theme === 'light'
+  return (
+    <button
+      title={isLight ? t('月亮模式(暗色)', 'Moon mode (dark)') : t('太阳模式(亮色)', 'Sun mode (light)')}
+      className="rounded-md p-1 text-zinc-500 hover:text-zinc-200"
+      onClick={() => setTheme(isLight ? 'dark' : 'light')}
+    >
+      {isLight ? <Moon size={14} /> : <Sun size={14} />}
+    </button>
+  )
+}
+
 function Nav({ role }: { role: string | null }) {
+  const t = useT()
   const [health, setHealth] = useState<Health | null>(null)
   useEffect(() => {
     const load = () => fetch('/api/healthz').then((r) => r.json()).then(setHealth).catch(() => setHealth(null))
@@ -44,38 +76,38 @@ function Nav({ role }: { role: string | null }) {
           <AudioLines size={17} className="text-emerald-400" /> YuE2 Workbench
         </span>
         <nav className="flex flex-nowrap items-center gap-1 overflow-x-auto text-sm">
-          <NavLink to="/" title="创作台" end className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/" title={t('创作台', 'Studio')} end className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Sparkles size={14} />
           </NavLink>
-          <NavLink to="/projects" title="项目库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/projects" title={t('项目库', 'Projects')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <FolderOpen size={14} />
           </NavLink>
-          <NavLink to="/transcribe" title="扒谱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/transcribe" title={t('扒谱', 'Transcribe')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <FileAudio size={14} />
           </NavLink>
-          <NavLink to="/stems" title="分轨" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/stems" title={t('分轨', 'Stems')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Layers size={14} />
           </NavLink>
-          <NavLink to="/uploads" title="素材" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/uploads" title={t('素材', 'Assets')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Package size={14} />
           </NavLink>
-          <NavLink to="/library" title="音乐库" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/library" title={t('音乐库', 'Library')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <LibraryBig size={14} />
           </NavLink>
-          <NavLink to="/cover" title="翻唱" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/cover" title={t('翻唱', 'Cover')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Mic2 size={14} />
           </NavLink>
-          <NavLink to="/master" title="母带" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/master" title={t('母带', 'Master')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Disc3 size={14} />
           </NavLink>
-          <NavLink to="/blind" title="盲听对决" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/blind" title={t('盲听对决', 'Blind Test')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Ear size={14} />
           </NavLink>
-          <NavLink to="/leaderboard" title="排行榜" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+          <NavLink to="/leaderboard" title={t('排行榜', 'Leaderboard')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Trophy size={14} />
           </NavLink>
           {role === 'admin' && (
-            <NavLink to="/system" title="系统/模型管理" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+            <NavLink to="/system" title={t('系统/模型管理', 'System & Models')} className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
               <Settings size={14} />
             </NavLink>
           )}
@@ -83,13 +115,15 @@ function Nav({ role }: { role: string | null }) {
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">
           {health?.models?.gpu && (
             <span className="hidden sm:inline">
-              {health.models.gpu.name} · 显存 {(health.models.gpu.total_gb - health.models.gpu.free_gb).toFixed(1)}/{health.models.gpu.total_gb} GB
+              {health.models.gpu.name} · {t('显存', 'VRAM')} {(health.models.gpu.total_gb - health.models.gpu.free_gb).toFixed(1)}/{health.models.gpu.total_gb} GB
             </span>
           )}
+          <ThemeToggle />
+          <LangToggle />
           <JobCenter />
           {role && (
             <button
-              title={role === 'admin' ? '登出(管理员)' : '登出(只听)'}
+              title={role === 'admin' ? t('登出(管理员)', 'Sign out (admin)') : t('登出(只听)', 'Sign out (listen-only)')}
               className="rounded-md p-1 text-zinc-500 hover:text-zinc-200"
               onClick={async () => {
                 await api('/logout', { method: 'POST' }).catch(() => {})
@@ -106,17 +140,21 @@ function Nav({ role }: { role: string | null }) {
   )
 }
 
-export default function App() {
+function AppInner() {
+  const t = useT()
   const [me, setMe] = useMe()
-  if (!me) return <div className="p-8 text-sm text-zinc-500">加载中…</div>
+  if (!me) return <div className="p-8 text-sm text-zinc-500">{t("加载中…", "Loading…")}</div>
   if (me.enabled && !me.role) {
     return (
-      <HashRouter>
-        <LoginPage onLogin={(role) => setMe({ enabled: true, role })} />
-      </HashRouter>
+      <LangProvider>
+        <HashRouter>
+          <LoginPage onLogin={(role) => setMe({ enabled: true, role })} />
+        </HashRouter>
+      </LangProvider>
     )
   }
   return (
+    <LangProvider>
     <HashRouter>
       <div className="flex h-dvh flex-col overflow-hidden">
         <Nav role={me.role} />
@@ -140,5 +178,14 @@ export default function App() {
         </main>
       </div>
     </HashRouter>
+    </LangProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <LangProvider>
+      <AppInner />
+    </LangProvider>
   )
 }

@@ -4,6 +4,33 @@
   color-scheme: dark;
 }
 
+/* ☀️ 太阳主题:在 html.light 下重映射调色板,全部页面零改动换肤。
+   月亮 = 暖夜(zinc 原值);太阳 = 暖阳纸底 + 深墨 + 加深的强调色(保对比度) */
+html.light {
+  color-scheme: light;
+  --color-zinc-950: #f5f1e6;
+  --color-zinc-900: #fdfaf1;
+  --color-zinc-800: #e5ddca;
+  --color-zinc-700: #ccc2ad;
+  --color-zinc-600: #a2977f;
+  --color-zinc-500: #7b7160;
+  --color-zinc-400: #5c5443;
+  --color-zinc-300: #423b2e;
+  --color-zinc-200: #2b2519;
+  --color-zinc-100: #1b1811;
+  --color-emerald-300: #08663c;
+  --color-emerald-400: #0b7a49;
+  --color-emerald-500: #0e8a54;
+  --color-amber-300: #92400e;
+  --color-amber-400: #b45309;
+  --color-amber-500: #b45309;
+  --color-amber-600: #92400e;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-red-500: #dc2626;
+  --color-yellow-400: #a16207;
+}
+
 html,
 body,
 #root {

@@ -3,6 +3,7 @@ import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import { Pause, Play } from 'lucide-react'
 import { Button } from './ui'
+import { onThemeChange, wavePalette } from '@/lib/theme'
 
 export type WaveRegionsHandle = {
   /** move the playhead cursor to t (seconds) */
@@ -24,6 +25,9 @@ export const WaveRegionsPlayer = forwardRef<WaveRegionsHandle, {
   const prevRegionRef = useRef<{ remove: () => void } | null>(null)
   const [playing, setPlaying] = useState(false)
   const [ready, setReady] = useState(false)
+  const [themeTick, setThemeTick] = useState(0)
+
+  useEffect(() => onThemeChange(() => setThemeTick((t) => t + 1)), [])
 
   useImperativeHandle(
     ref,
@@ -41,9 +45,7 @@ export const WaveRegionsPlayer = forwardRef<WaveRegionsHandle, {
     const ws = WaveSurfer.create({
       container: containerRef.current,
       height,
-      waveColor: '#52525b',
-      progressColor: '#34d399',
-      cursorColor: '#a1a1aa',
+      ...wavePalette(),
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
@@ -84,7 +86,7 @@ export const WaveRegionsPlayer = forwardRef<WaveRegionsHandle, {
       setPlaying(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, height])
+  }, [url, height, themeTick])
 
   return (
     <div className="flex items-center gap-3">

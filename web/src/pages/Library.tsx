@@ -6,6 +6,7 @@ import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
+import { useT } from '@/lib/i18n'
 
 type DedupReport = { compared: number; pairs: { a: LibItem; b: LibItem; similarity: number }[] }
 
@@ -24,6 +25,7 @@ type LibItem = {
 }
 
 export function LibraryPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [items, setItems] = useState<LibItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,37 +109,37 @@ export function LibraryPage() {
 
   return (
     <Page>
-      {importing && <JobPanel jobId={jobId!} events={events} done={done} title="导入分析" failedNote={latestEvent?.detail} />}
+      {importing && <JobPanel jobId={jobId!} events={events} done={done} title={t('导入分析', 'Import analysis')} failedNote={latestEvent?.detail} />}
       <Card>
         <CardHeader
-          title={<span className="flex items-center gap-2"><LibraryBig size={15} /> 音乐库</span>}
-          desc="MERT 打标 · 相似检索 · 歌单 · 翻唱查重"
+          title={<span className="flex items-center gap-2"><LibraryBig size={15} /> {t('音乐库', 'Library')}</span>}
+          desc={t('MERT 打标 · 相似检索 · 歌单 · 翻唱查重', 'MERT tagging · similar search · playlists · cover dedup')}
           right={
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-xs text-zinc-400">
-                <input type="checkbox" aria-label="导入时同时扒谱" checked={withTranscribe} onChange={(e) => setWithTranscribe(e.target.checked)} className="accent-emerald-500" />
-                导入时同时扒谱(调性/速度)
+                <input type="checkbox" aria-label={t('导入时同时扒谱', 'Transcribe on import')} checked={withTranscribe} onChange={(e) => setWithTranscribe(e.target.checked)} className="accent-emerald-500" />
+                {t('导入时同时扒谱(调性/速度)', 'Transcribe on import (key/tempo)')}
               </label>
-              <input ref={fileRef} type="file" accept="audio/*" aria-label="导入歌曲文件" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
-              <Button size="sm" variant="outline" title="成对相似度报告,高相似对即疑似翻唱/重复"
+              <input ref={fileRef} type="file" accept="audio/*" aria-label={t('导入歌曲文件', 'Import song file')} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndImport(f); e.target.value = '' }} />
+              <Button size="sm" variant="outline" title={t('成对相似度报告,高相似对即疑似翻唱/重复', 'Pairwise similarity report — high pairs are likely covers/duplicates')}
                 onClick={() => api<DedupReport>('/library/dedup', { method: 'POST' }).then(setDedup).catch((e) => alert(String(e)))}>
-                <GitCompare size={13} /> 查重
+                <GitCompare size={13} /> {t('查重', 'Dedup')}
               </Button>
               <Button size="sm" disabled={busy === 'upload' || importing} onClick={() => fileRef.current?.click()}>
-                {busy === 'upload' || importing ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />} 导入歌曲
+                {busy === 'upload' || importing ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />} {t('导入歌曲', 'Import songs')}
               </Button>
             </div>
           }
         />
         <CardBody className="p-0">
-          {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
+          {loading && <div className="p-4 text-sm text-zinc-500">{t('加载中…', 'Loading…')}</div>}
           {!loading && items.length === 0 && (
-            <div className="p-4 text-sm text-zinc-500">空空如也,点右上角导入歌曲。</div>
+            <div className="p-4 text-sm text-zinc-500">{t('空空如也,点右上角导入歌曲。', 'Empty — use Import songs at the top right.')}</div>
           )}
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-800 px-4 py-2.5 text-xs">
-          <span className="text-zinc-500">标签:</span>
-          <button onClick={() => setTagFilter(null)} className={`rounded-full border px-2.5 py-1 ${!tagFilter ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>全部</button>
+          <span className="text-zinc-500">{t('标签:', 'Tags:')}</span>
+          <button onClick={() => setTagFilter(null)} className={`rounded-full border px-2.5 py-1 ${!tagFilter ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>{t('全部', 'All')}</button>
           {allTags.map((t) => (
             <button key={t} onClick={() => setTagFilter(t)} className={`rounded-full border px-2.5 py-1 ${tagFilter === t ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>{t}</button>
           ))}
@@ -165,17 +167,17 @@ export function LibraryPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button variant="ghost" size="sm" title="以此曲风格创作" className="h-8 w-8 p-0" onClick={() => navigate('/', { state: { refItemId: it.id } })}><Wand2 size={15} /></Button>
-                  <Button variant="ghost" size="sm" title="重新打标签(探针)" className="h-8 w-8 p-0" disabled={busy === `tag:${it.id}`} onClick={() => {
+                  <Button variant="ghost" size="sm" title={t('以此曲风格创作', 'Create with this style')} className="h-8 w-8 p-0" onClick={() => navigate('/', { state: { refItemId: it.id } })}><Wand2 size={15} /></Button>
+                  <Button variant="ghost" size="sm" title={t('重新打标签(探针)', 'Retag (probes)')} className="h-8 w-8 p-0" disabled={busy === `tag:${it.id}`} onClick={() => {
                     setBusy(`tag:${it.id}`)
                     api<{ tags: string[] }>(`/library/${it.id}/retag`, { method: 'POST' })
                       .then(() => refresh())
                       .catch((e) => alert(String(e)))
                       .finally(() => setBusy(null))
                   }}><RotateCcw size={15} /></Button>
-                  <Button variant="ghost" size="sm" title="找相似" className="h-8 w-8 p-0" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}><Sparkles size={15} /></Button>
-                  <Button variant="ghost" size="sm" title="生成歌单" className="h-8 w-8 p-0" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={15} /></Button>
-                  <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh).catch((e) => alert(String(e)))}><Trash2 size={15} /></Button>
+                  <Button variant="ghost" size="sm" title={t('找相似', 'Find similar')} className="h-8 w-8 p-0" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}><Sparkles size={15} /></Button>
+                  <Button variant="ghost" size="sm" title={t('生成歌单', 'Make playlist')} className="h-8 w-8 p-0" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={15} /></Button>
+                  <Button variant="ghost" size="sm" title={t('删除', 'Delete')} className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh).catch((e) => alert(String(e)))}><Trash2 size={15} /></Button>
                 </div>
               </div>
               <div className="mt-2"><AudioPlayer url={it.audio_url} height={44} /></div>
@@ -188,11 +190,11 @@ export function LibraryPage() {
       {dedup && (
         <Card>
           <CardHeader
-            title={`翻唱/重复检测(${dedup.compared} 首,阈值 0.85)`}
-            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setDedup(null)}>收起</button>}
+            title={t(`翻唱/重复检测(${dedup.compared} 首,阈值 0.85)`, `Cover/duplicate check (${dedup.compared} songs, threshold 0.85)`)}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setDedup(null)}>{t('收起', 'Collapse')}</button>}
           />
           <CardBody className="space-y-1">
-            {dedup.pairs.length === 0 && <div className="text-xs text-zinc-500">没有发现高相似对</div>}
+            {dedup.pairs.length === 0 && <div className="text-xs text-zinc-500">{t('没有发现高相似对', 'No high-similarity pairs found')}</div>}
             {dedup.pairs.map((p, i) => (
               <div key={i} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-800/60">
                 <span className="truncate text-zinc-200">{p.a.title} ↔ {p.b.title}</span>
@@ -205,9 +207,9 @@ export function LibraryPage() {
 
       {similarOf && (
         <Card>
-          <CardHeader title={`与「${similarOf.item.title}」相似`} right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setSimilarOf(null)}>收起</button>} />
+          <CardHeader title={t(`与「${similarOf.item.title}」相似`, `Similar to “${similarOf.item.title}”`)} right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setSimilarOf(null)}>{t('收起', 'Collapse')}</button>} />
           <CardBody className="space-y-1">
-            {similarOf.rows.length === 0 && <div className="text-xs text-zinc-500">库里没有可比对的其它歌曲</div>}
+            {similarOf.rows.length === 0 && <div className="text-xs text-zinc-500">{t('库里没有可比对的其它歌曲', 'No other songs in the library to compare')}</div>}
             {similarOf.rows.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-800/60">
                 <span className="truncate text-zinc-200">{r.title}</span>
@@ -221,8 +223,8 @@ export function LibraryPage() {
       {playlist && (
         <Card>
           <CardHeader
-            title={<span className="flex items-center gap-2"><Sparkles size={15} className="text-emerald-400" /> 生成的歌单(相似 + 多样性)</span>}
-            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setPlaylist(null)}>收起</button>}
+            title={<span className="flex items-center gap-2"><Sparkles size={15} className="text-emerald-400" /> {t('生成的歌单(相似 + 多样性)', 'Generated playlist (similar + diverse)')}</span>}
+            right={<button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setPlaylist(null)}>{t('收起', 'Collapse')}</button>}
           />
           <CardBody className="space-y-1">
             {playlist.map((r, i) => (

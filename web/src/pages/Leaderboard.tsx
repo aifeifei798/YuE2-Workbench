@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Gauge, Loader2, Play, RefreshCw, Trophy, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
+import { useT } from '@/lib/i18n'
 import { JobPanel } from '@/components/JobPanel'
 import { Badge, Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
@@ -28,6 +29,7 @@ type Row = {
 }
 
 export function LeaderboardPage() {
+  const t = useT()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [jobId, setJobId] = useState<string | null>(null)
@@ -50,42 +52,42 @@ export function LeaderboardPage() {
 
   return (
     <Page className="flex h-full flex-col">
-      {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} />}
+      {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title={t('批量评测', 'Batch evaluation')} failedNote={latest?.detail} />}
 
       <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
-          title="评测排行榜"
-          desc="全部版本按复合分排名:0.45×歌词清晰度 + 0.30×结构连贯性 + 0.20×重构SNR + 0.05×低削波 —— 代理指标,最终以人耳为准"
+          title={t('评测排行榜', 'Leaderboard')}
+          desc={t('全部版本按复合分排名:0.45×歌词清晰度 + 0.30×结构连贯性 + 0.20×重构SNR + 0.05×低削波 —— 代理指标,最终以人耳为准', 'All versions ranked by composite score: 0.45×lyric clarity + 0.30×coherence + 0.20×SNR + 0.05×low-clipping — proxy metrics; your ears have the final say')}
           right={
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={refresh}><RefreshCw size={13} /> 刷新</Button>
+              <Button size="sm" variant="outline" onClick={refresh}><RefreshCw size={13} /> {t('刷新', 'Refresh')}</Button>
               <Button
                 size="sm"
                 disabled={pending === 0 || (!!jobId && !done)}
                 onClick={() => api<{ job_id: string }>('/evaluate/batch?limit=8', { method: 'POST' }).then((r) => setJobId(r.job_id)).catch((e) => alert(String(e)))}
               >
                 {jobId && !done ? <Loader2 className="animate-spin" size={13} /> : <Gauge size={13} />}
-                评测缺失版本{pending > 0 ? `(${pending})` : ''}
+                {t('评测缺失版本', 'Evaluate missing')}{pending > 0 ? `(${pending})` : ''}
               </Button>
             </div>
           }
         />
         <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
-          {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
-          {!loading && rows.length === 0 && <div className="p-4 text-sm text-zinc-500">还没有版本,去创作一首。</div>}
+          {loading && <div className="p-4 text-sm text-zinc-500">{t('加载中…', 'Loading…')}</div>}
+          {!loading && rows.length === 0 && <div className="p-4 text-sm text-zinc-500">{t('还没有版本,去创作一首。', 'No versions yet — go create one.')}</div>}
           {rows.length > 0 && (
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-zinc-900 text-zinc-400">
                 <tr>
                   <th className="w-10 px-2 py-2"></th>
                   <th className="px-3 py-2 text-left">#</th>
-                  <th className="px-3 py-2 text-left">作品</th>
-                  <th className="px-3 py-2">版本</th>
-                  <th className="px-3 py-2">清晰度</th>
-                  <th className="px-3 py-2">连贯性</th>
+                  <th className="px-3 py-2 text-left">{t('作品', 'Song')}</th>
+                  <th className="px-3 py-2">{t('版本', 'Ver.')}</th>
+                  <th className="px-3 py-2">{t('清晰度', 'Clarity')}</th>
+                  <th className="px-3 py-2">{t('连贯性', 'Coherence')}</th>
                   <th className="px-3 py-2">SNR</th>
-                  <th className="px-3 py-2">削波</th>
-                  <th className="px-3 py-2">综合分</th>
+                  <th className="px-3 py-2">{t('削波', 'Clipping')}</th>
+                  <th className="px-3 py-2">{t('综合分', 'Score')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,7 +96,7 @@ export function LeaderboardPage() {
                     <td className="px-2 py-2">
                       <button
                         aria-label={`播放 ${r.project} v${r.v}`}
-                        title={playing?.version_id === r.version_id ? '关闭播放' : '播放这首歌'}
+                        title={playing?.version_id === r.version_id ? t('关闭播放', 'Stop') : t('播放这首歌', 'Play this song')}
                         onClick={() => setPlaying(playing?.version_id === r.version_id ? null : r)}
                         className={`flex h-7 w-7 items-center justify-center rounded-full border ${playing?.version_id === r.version_id ? 'border-emerald-500/50 text-emerald-400' : 'border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}
                       >
@@ -113,7 +115,7 @@ export function LeaderboardPage() {
                     <td className="px-3 py-2 text-center font-mono">{r.metrics?.coherence ?? '—'}</td>
                     <td className="px-3 py-2 text-center font-mono">{r.metrics?.vae_recon_snr_db ?? '—'}</td>
                     <td className="px-3 py-2 text-center font-mono">{r.metrics?.clip_ratio ?? '—'}</td>
-                    <td className="px-3 py-2 text-center font-mono text-emerald-400">{r.score ?? '未评测'}</td>
+                    <td className="px-3 py-2 text-center font-mono text-emerald-400">{r.score ?? t('未评测', 'not scored')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,8 +132,8 @@ export function LeaderboardPage() {
               {playing.note ? ` · ${playing.note}` : ''}
             </span>
             <div className="flex items-center gap-2">
-              <Link to={`/projects/${playing.project_id}`} className="text-emerald-400 hover:underline">打开项目 →</Link>
-              <button aria-label="关闭播放" className="rounded p-0.5 text-zinc-500 hover:text-zinc-200" onClick={() => setPlaying(null)}><X size={13} /></button>
+              <Link to={`/projects/${playing.project_id}`} className="text-emerald-400 hover:underline">{t('打开项目 →', 'Open project →')}</Link>
+              <button aria-label={t('关闭播放', 'Stop')} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200" onClick={() => setPlaying(null)}><X size={13} /></button>
             </div>
           </div>
           <audio key={playing.version_id} src={songUrl(playing)} controls autoPlay className="w-full" />

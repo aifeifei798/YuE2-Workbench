@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Ear, RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useT } from '@/lib/i18n'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { Button, Card, CardBody, CardHeader, Page } from '@/components/ui'
 
@@ -21,6 +22,7 @@ type Stats = {
 }
 
 export function BlindPage() {
+  const t = useT()
   const [pair, setPair] = useState<Pair | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
@@ -59,27 +61,27 @@ export function BlindPage() {
     <Page>
       <Card>
         <CardHeader
-          title={<span className="flex items-center gap-2"><Ear size={15} className="text-emerald-400" /> 盲听对决</span>}
-          desc="同一素材的两个版本,标签只是 A/B —— 数据只属于你的耳朵"
-          right={<span className="text-xs text-zinc-500">累计 {stats?.votes ?? 0} 票</span>}
+          title={<span className="flex items-center gap-2"><Ear size={15} className="text-emerald-400" /> {t('盲听对决', 'Blind Test')}</span>}
+          desc={t('同一素材的两个版本,标签只是 A/B —— 数据只属于你的耳朵', 'Two versions of the same take, labeled only A/B — the data belongs to your ears alone')}
+          right={<span className="text-xs text-zinc-500">{t('累计', 'Total')} {stats?.votes ?? 0} {t('票', 'votes')}</span>}
         />
         {error ? (
           <CardBody className="flex items-center justify-between text-sm text-zinc-400">
             <span>{error}</span>
-            <Button size="sm" variant="outline" onClick={loadPair}><RefreshCw size={13} /> 重试</Button>
+            <Button size="sm" variant="outline" onClick={loadPair}><RefreshCw size={13} /> {t('重试', 'Retry')}</Button>
           </CardBody>
         ) : !pair ? (
           <CardBody>
-            <div className="text-sm text-zinc-500">加载中…</div>
+            <div className="text-sm text-zinc-500">{t('加载中…', 'Loading…')}</div>
           </CardBody>
         ) : (
           <>
             <CardHeader
-              title="这一轮,哪个更好听?"
-              desc="不显示曲目信息;两边可以反复听,凭直觉选"
+              title={t('这一轮,哪个更好听?', 'Which one sounds better?')}
+              desc={t('不显示曲目信息;两边可以反复听,凭直觉选', 'No track info shown — listen to both as many times as you like, then trust your gut')}
               right={
                 <button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={loadPair}>
-                  换一组
+                  {t('换一组', 'Another pair')}
                 </button>
               }
             />
@@ -87,16 +89,16 @@ export function BlindPage() {
               {(['a', 'b'] as const).map((side) => (
                 <div key={side} className="rounded-xl border border-zinc-800 p-3">
                   <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-sm font-medium text-zinc-200">选手 {side.toUpperCase()}</span>
+                    <span className="text-sm font-medium text-zinc-200">{t('选手', 'Take')} {side.toUpperCase()}</span>
                   </div>
                   <AudioPlayer url={pair[side].url} height={56} />
                 </div>
               ))}
             </CardBody>
             <CardBody className="flex flex-wrap items-center justify-center gap-3 border-t border-zinc-800">
-              <Button disabled={voting} onClick={() => vote('a')}>选 A</Button>
-              <Button variant="outline" disabled={voting} onClick={() => vote('tie')}>难分伯仲</Button>
-              <Button disabled={voting} onClick={() => vote('b')}>选 B</Button>
+              <Button disabled={voting} onClick={() => vote('a')}>{t('选 A', 'Pick A')}</Button>
+              <Button variant="outline" disabled={voting} onClick={() => vote('tie')}>{t('难分伯仲', 'Too close')}</Button>
+              <Button disabled={voting} onClick={() => vote('b')}>{t('选 B', 'Pick B')}</Button>
             </CardBody>
           </>
         )}
@@ -104,29 +106,29 @@ export function BlindPage() {
 
       <Card>
         <CardHeader
-          title={`口味排行(ELO · ${stats?.rows.length ?? 0} 首参与)`}
-          desc="每次盲测投票实时更新;这是你的真实偏好,代理指标骗不了它"
+          title={t(`口味排行(ELO · ${stats?.rows.length ?? 0} 首参与)`, `Taste ranking (ELO · ${stats?.rows.length ?? 0} songs)`)}
+          desc={t('每次盲测投票实时更新;这是你的真实偏好,代理指标骗不了它', 'Updated with every blind vote — this is your real preference, proxy metrics cannot fake it')}
           right={
             <button className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setShowStats((s) => !s)}>
-              {showStats ? '收起' : '展开'}
+              {showStats ? t('收起', 'Collapse') : t('展开', 'Expand')}
             </button>
           }
         />
         {showStats && (
           <CardBody className="p-0">
             {!stats || stats.rows.length === 0 ? (
-              <div className="p-4 text-xs text-zinc-500">还没有投票。投几次之后,这里会给出你的口味排名。</div>
+              <div className="p-4 text-xs text-zinc-500">{t('还没有投票。投几次之后,这里会给出你的口味排名。', 'No votes yet. Vote a few times and your taste ranking shows up here.')}</div>
             ) : (
               <table className="w-full text-xs">
                 <thead className="bg-zinc-900 text-zinc-400">
                   <tr>
                     <th className="px-3 py-2 text-left">#</th>
-                    <th className="px-3 py-2 text-left">作品</th>
-                    <th className="px-3 py-2">版本</th>
+                    <th className="px-3 py-2 text-left">{t('作品', 'Song')}</th>
+                    <th className="px-3 py-2">{t('版本', 'Ver.')}</th>
                     <th className="px-3 py-2">ELO</th>
-                    <th className="px-3 py-2">胜</th>
-                    <th className="px-3 py-2">负</th>
-                    <th className="px-3 py-2">平</th>
+                    <th className="px-3 py-2">{t('胜', 'W')}</th>
+                    <th className="px-3 py-2">{t('负', 'L')}</th>
+                    <th className="px-3 py-2">{t('平', 'T')}</th>
                   </tr>
                 </thead>
                 <tbody>
