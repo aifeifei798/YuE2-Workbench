@@ -1,5 +1,7 @@
 """Audio upload + analysis tools (transcribe / stems) + 上传素材统一管理."""
 
+import json
+import re
 import shutil
 import subprocess
 import uuid
@@ -13,7 +15,7 @@ from pydantic import BaseModel
 from ..services import queue
 from ..core.config import settings
 from ..core.db import SessionLocal
-from ..models.tables import Project, UploadAsset, Version, uid
+from ..models.tables import Job, Project, UploadAsset, Version, uid
 from ..services.master_svc import src_cache_key
 
 router = APIRouter(prefix="/api", tags=["tools"])
@@ -38,12 +40,39 @@ def _probe_duration(path: Path) -> float | None:
         return None
 
 
-def _transcription_files(key: str) -> list[Path]:
-    """扒谱产物:ABC/MIDI/标注,zip 本身不算。"""
+def _transcription_runs(key: str) -> list[Path]:
+    """按时间倒序的扒谱 run 目录。
+
+    首次访问会把旧版平铺在 t_<key> 顶层的文件收进一个 run(一次性的自愈迁移),
+    之后 has_transcription / zip / 版本列表都以 run 目录为准。
+    """
     tdir = settings.data_dir / "transcriptions" / f"t_{key}"
     if not tdir.exists():
         return []
-    return [p for p in tdir.iterdir() if p.is_file() and p.suffix != ".zip"]
+    legacy = [p for p in tdir.iterdir() if not p.name.startswith("r_") and p.suffix != ".zip"]
+    if legacy:
+        existing = sorted(
+            (d for d in tdir.iterdir() if d.is_dir() and d.name.startswith("r_")),
+            key=lambda d: d.stat().st_mtime,
+        )
+        # 部分迁移过的目录残余收进最早的 run,别拆成两个版本
+        rd = existing[0] if existing else tdir / f"r_{int(tdir.stat().st_mtime) * 1000}"
+        rd.mkdir(exist_ok=True)
+        for p in legacy:
+            p.rename(rd / p.name)
+    return sorted(
+        (d for d in tdir.iterdir() if d.is_dir() and d.name.startswith("r_") and any(d.iterdir())),
+        key=lambda d: d.stat().st_mtime,
+        reverse=True,
+    )
+
+
+def _transcription_files(key: str) -> list[Path]:
+    """最新一次扒谱的全部产物文件。"""
+    runs = _transcription_runs(key)
+    if not runs:
+        return []
+    return [p for p in runs[0].iterdir() if p.is_file() and p.suffix != ".zip"]
 
 
 def _upload_out(u: UploadAsset, db) -> dict:
@@ -186,11 +215,126 @@ def upload_stems_zip(upload_id: str):
 @router.get("/uploads/{upload_id}/export/transcription.zip")
 def upload_transcription_zip(upload_id: str):
     u = _get_asset(upload_id)
-    tdir = settings.data_dir / "transcriptions" / f"t_{src_cache_key(u.path)}"
-    if not _transcription_files(src_cache_key(u.path)):
-        raise HTTPException(404, "这个素材还没有扒谱")
-    return FileResponse(_zip_dir(tdir, "transcription.zip"), media_type="application/zip",
-                        filename=f"{Path(u.filename).stem}_扒谱.zip")
+    # 取最新一个"有文件"的 run(纯目录 run 打不出包)
+    for rd in _transcription_runs(src_cache_key(u.path)):
+        if any(p.is_file() for p in rd.iterdir()):
+            return FileResponse(_zip_dir(rd, "transcription.zip"), media_type="application/zip",
+                                filename=f"{Path(u.filename).stem}_扒谱.zip")
+    raise HTTPException(404, "这个素材还没有扒谱")
+
+
+def _run_melody_only(rd: Path, names: set[str]) -> bool:
+    """优先读 run.json;旧 run 没有就退回文件启发式。"""
+    meta_path = rd / "run.json"
+    if meta_path.exists():
+        try:
+            return bool(json.loads(meta_path.read_text(encoding="utf-8")).get("melody_only"))
+        except Exception:
+            pass
+    return not names & {"chords.mid", "chord.lab"}
+
+
+@router.get("/uploads/{upload_id}/transcriptions")
+def upload_transcription_runs(upload_id: str):
+    """历次扒谱版本(新→旧),供前端选版本恢复,不用重跑。"""
+    u = _get_asset(upload_id)
+    out = []
+    for rd in _transcription_runs(src_cache_key(u.path)):
+        names = {p.name for p in rd.iterdir() if p.is_file()}
+        out.append({
+            "run_id": rd.name,
+            "created_at": rd.stat().st_mtime,
+            "has_score": "score.abc" in names,
+            "melody_only": _run_melody_only(rd, names),
+            "n_files": len(names),
+        })
+    return out
+
+
+@router.get("/uploads/{upload_id}/transcriptions/{run_id}")
+def upload_transcription_run(upload_id: str, run_id: str):
+    """重建某一次扒谱的完整结果(abc + files + summary),与任务返回同构。"""
+    if not re.fullmatch(r"r_[0-9]+", run_id):
+        raise HTTPException(400, "bad run_id")
+    u = _get_asset(upload_id)
+    rd = settings.data_dir / "transcriptions" / f"t_{src_cache_key(u.path)}" / run_id
+    if not rd.is_dir():
+        raise HTTPException(404, "run not found")
+    from ..services.transcribe_svc import summarize
+
+    abc = ""
+    abc_path = rd / "score.abc"
+    if abc_path.exists():
+        abc = abc_path.read_text(encoding="utf-8")
+    events = []
+    events_path = rd / "events.json"
+    if events_path.exists():
+        try:
+            data = json.loads(events_path.read_text(encoding="utf-8"))
+            events = data.get("events", []) if isinstance(data, dict) else data
+        except Exception:
+            events = []
+    files = {}
+    for p in sorted(rd.iterdir()):
+        if p.is_file() and p.suffix != ".zip":
+            files[p.name] = "/audio/" + str(p.relative_to(settings.data_dir))
+    names = set(files)
+    return {
+        "abc": abc,
+        "melody_only": _run_melody_only(rd, names),
+        "files": files,
+        "summary": summarize(events),
+    }
+
+
+@router.delete("/uploads/{upload_id}/transcriptions/{run_id}", status_code=204)
+def delete_transcription_run(upload_id: str, run_id: str):
+    """删除某次扒谱版本,不提供找回。"""
+    if not re.fullmatch(r"r_[0-9]+", run_id):
+        raise HTTPException(400, "bad run_id")
+    u = _get_asset(upload_id)
+    rd = settings.data_dir / "transcriptions" / f"t_{src_cache_key(u.path)}" / run_id
+    if not rd.is_dir():
+        raise HTTPException(404, "run not found")
+    shutil.rmtree(rd)
+    if rd.parent.is_dir() and not any(rd.parent.iterdir()):
+        rd.parent.rmdir()
+
+
+@router.get("/uploads/{upload_id}/covers")
+def upload_covers(upload_id: str):
+    """历次翻唱版本:项目仍在的才返回;result 是当时的 prepare 结果,可整份恢复。"""
+    u = _get_asset(upload_id)
+    ids = (u.derived_json or {}).get("cover_project_ids", [])[-10:]
+    if not ids:
+        return []
+    db = SessionLocal()
+    try:
+        job_map = {}
+        for j in (
+            db.query(Job)
+            .filter(Job.type == "cover_prepare", Job.status == "done")
+            .order_by(Job.created_at.desc())
+            .all()
+        ):
+            pid = (j.result or {}).get("project_id")
+            if pid and pid not in job_map:
+                job_map[pid] = j.result
+        out = []
+        for pid in ids:
+            p = db.get(Project, pid)
+            if p is None:
+                continue
+            out.append({
+                "project_id": pid,
+                "title": p.title,
+                "created_at": p.created_at,
+                "result": job_map.get(pid),
+            })
+        out.sort(key=lambda x: x["created_at"], reverse=True)
+        return out
+    finally:
+        db.close()
 
 
 @router.post("/upload")

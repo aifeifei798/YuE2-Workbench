@@ -220,8 +220,16 @@ def run_transcribe(params: dict, emit, cancelled) -> dict:
         src = params.get("path")
         if not src or not Path(src).exists():
             raise ValueError("provide path or version_id")
-        out_dir = settings.data_dir / "transcriptions" / f"t_{_src_cache_key(src)}"
+        # 素材页"已扒谱"要能取回历次结果:每次 run 一个子目录,不覆盖
+        out_dir = (
+            settings.data_dir / "transcriptions" / f"t_{_src_cache_key(src)}"
+            / f"r_{int(time.time() * 1000)}"
+        )
         result = transcribe_file(src, out_dir, melody_only=melody_only, emit=emit)
+        # run 元数据:版本列表里可靠区分 仅旋律/完整(文件启发式不可靠)
+        (out_dir / "run.json").write_text(
+            json.dumps({"melody_only": melody_only, "created_at": time.time()}), encoding="utf-8"
+        )
     return result
 
 

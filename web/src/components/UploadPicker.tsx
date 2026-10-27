@@ -35,6 +35,7 @@ export function UploadPicker({ onPick, label = '已上传素材', hint }: {
             {u.filename} · {fmtDur(u.duration)}
             {u.has_stems ? ' · 已分轨' : ''}
             {u.has_transcription ? ' · 已扒谱' : ''}
+            {u.covers?.length ? ' · 已翻唱' : ''}
           </option>
         ))}
       </Select>

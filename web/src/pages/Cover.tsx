@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Mic2, Upload } from 'lucide-react'
 import { api, type UploadAsset } from '@/lib/api'
@@ -7,7 +7,7 @@ import { JobPanel } from '@/components/JobPanel'
 import { Notation } from '@/components/Notation'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { UploadPicker } from '@/components/UploadPicker'
-import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Textarea } from '@/components/ui'
+import { Badge, Button, Card, CardBody, CardHeader, Input, Label, Select, Textarea } from '@/components/ui'
 
 type CoverPrepareResult = {
   project_id: string
@@ -19,6 +19,7 @@ type CoverPrepareResult = {
   stems: Record<string, string>
   source_path: string
 }
+type CoverVersion = { project_id: string; title: string; created_at: number; result: CoverPrepareResult | null }
 
 const STYLE_PRESETS = [
   'Jazz-funk, warm lead vocal, Rhodes piano, electric bass, tight drums',
@@ -38,28 +39,34 @@ export function CoverPage() {
   const { events: prepEvents, done: prepDone, job: prepJobRow } = useJobStream(prepareJob)
   const { events: genEvents, done: genDone, job: genJobRow } = useJobStream(genJob)
 
-  const prepResult = useMemo(
+  const [style, setStyle] = useState('')
+  const [lyrics, setLyrics] = useState('')
+  const [seed, setSeed] = useState('')
+  const [sourceName, setSourceName] = useState('')
+  const [pickedUpload, setPickedUpload] = useState<UploadAsset | null>(null)
+  const [restoredPrep, setRestoredPrep] = useState<CoverPrepareResult | null>(null)
+  const [coverVersions, setCoverVersions] = useState<CoverVersion[]>([])
+  const [activeCoverId, setActiveCoverId] = useState('')
+
+  const streamPrep = useMemo(
     () => ((prepJobRow?.result ?? prepEvents.find((e) => e.result)?.result) ?? undefined) as CoverPrepareResult | undefined,
     [prepJobRow, prepEvents],
   )
+  // 从素材"已翻唱"恢复的历史结果;新任务开始时清空
+  const prepResult = streamPrep ?? restoredPrep ?? undefined
   const genResult = useMemo(
     () => ((genJobRow?.result ?? genEvents.find((e) => e.result)?.result) ?? undefined) as GenResult | undefined,
     [genJobRow, genEvents],
   )
 
-  const [style, setStyle] = useState('')
-  const [lyrics, setLyrics] = useState('')
-  const [seed, setSeed] = useState('')
-  const [sourceName, setSourceName] = useState('')
-
-  // 深链 ?u=<upload_id>:素材页"去翻唱"直达,选完自动开始分析
+  // 深链 ?u=<upload_id>:素材页"去翻唱"直达;已翻唱载入上次结果,否则自动开始分析
   useEffect(() => {
     const want = sp.get('u')
     if (!want) return
     api<UploadAsset[]>('/uploads')
       .then((list) => {
         const u = list.find((x) => x.id === want)
-        if (u) reuseUpload(u)
+        if (u) applyUpload(u)
         setSp({}, { replace: true })
       })
       .catch(() => setSp({}, { replace: true }))
@@ -79,16 +86,41 @@ export function CoverPage() {
       fd.append('file', f)
       const up = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!up.ok) throw new Error(`${up.status} ${await up.text()}`)
-      const { path } = await up.json()
-      const res = await api<{ job_id: string }>('/cover/prepare', {
-        method: 'POST',
-        body: JSON.stringify({ path }),
-      })
-      setPrepareJob(res.job_id)
+      applyUpload((await up.json()) as UploadAsset)
     } catch (e) {
       setError(String(e))
     } finally {
       setUploading(false)
+    }
+  }
+
+  const loadCovers = useCallback(async (assetId: string, autoPick = true) => {
+    try {
+      const list = await api<CoverVersion[]>(`/uploads/${assetId}/covers`)
+      setCoverVersions(list)
+      if (autoPick) {
+        const latest = list[0]
+        setActiveCoverId(latest?.project_id ?? '')
+        setRestoredPrep(latest?.result ?? null)
+      }
+    } catch {
+      setCoverVersions([])
+    }
+  }, [])
+
+  // 选素材:已翻唱的直接载入最后一次分析结果,没翻唱过才自动跑分析
+  function applyUpload(u: UploadAsset) {
+    setPickedUpload(u)
+    setFile(null)
+    setSourceName(u.filename)
+    setGenJob(null)
+    setRestoredPrep(null)
+    setCoverVersions([])
+    setError(null)
+    if (u.covers?.length) {
+      loadCovers(u.id)
+    } else {
+      reuseUpload(u)
     }
   }
 
@@ -129,6 +161,36 @@ export function CoverPage() {
       .catch((e) => setError(String(e)))
   }
 
+  function pickCover(pid: string) {
+    const c = coverVersions.find((x) => x.project_id === pid)
+    if (!c) return
+    if (!c.result) {
+      setError('这个版本的分析结果已失效(任务记录被清理),请在项目页继续或重新分析')
+      return
+    }
+    setError(null)
+    setActiveCoverId(pid)
+    setGenJob(null)
+    setRestoredPrep(c.result)
+  }
+
+  async function deleteCover() {
+    if (!activeCoverId || !confirm('删除这个翻唱版本(整个草稿项目)?不提供找回。')) return
+    try {
+      await api(`/projects/${activeCoverId}`, { method: 'DELETE' })
+      setGenJob(null)
+      if (pickedUpload?.id) {
+        await loadCovers(pickedUpload.id)
+      } else {
+        setRestoredPrep(null)
+        setActiveCoverId('')
+        setCoverVersions([])
+      }
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   const reviewing = !!prepResult
   const summaryBits = prepResult
     ? [
@@ -146,7 +208,7 @@ export function CoverPage() {
           desc="老歌 → 分离人声 → 扒旋律谱 → 转歌词 → 校对后换风格重唱"
         />
         <CardBody className="space-y-4">
-          <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+          <input ref={fileRef} type="file" accept="audio/*" aria-label="上传翻唱歌曲" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; pick(f) }} />
           <button
             onClick={() => fileRef.current?.click()}
             className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-700 py-8 text-sm text-zinc-400 transition-colors hover:border-emerald-500/50 hover:text-zinc-200"
@@ -155,7 +217,7 @@ export function CoverPage() {
             {file ? file.name : sourceName || '点击选择要翻唱的歌曲'}
             <span className="text-xs text-zinc-600">准备阶段约 1~3 分钟(分轨 + 扒谱 + 歌词识别)</span>
           </button>
-          <UploadPicker onPick={reuseUpload} hint="复用素材库里的歌,选完自动开始分析" />
+          <UploadPicker onPick={applyUpload} hint="选已翻唱的素材直接载入上次结果,没翻唱过的自动开始分析" />
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
         </CardBody>
       </Card>
@@ -168,6 +230,34 @@ export function CoverPage() {
 
       {reviewing && prepResult && (
         <>
+          {coverVersions.length > 0 && (
+            <Card className="mt-5">
+              <CardBody className="flex flex-wrap items-end gap-3">
+                <div className="min-w-64 flex-1">
+                  <Label hint={`共 ${coverVersions.length} 次,当前显示最后一次`}>历史翻唱版本</Label>
+                  <Select aria-label="选择翻唱版本" value={activeCoverId} disabled={!!prepareJob && !prepDone} onChange={(e) => pickCover(e.target.value)}>
+                    {coverVersions.map((c) => (
+                      <option key={c.project_id} value={c.project_id}>
+                        {new Date(c.created_at * 1000).toLocaleString()} · {c.title}{c.result ? '' : ' · 结果已失效'}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  variant="outline" size="sm" className="h-10" disabled={!!prepareJob && !prepDone || !pickedUpload}
+                  onClick={() => pickedUpload && reuseUpload(pickedUpload)} title="对这个素材重新跑一次分析"
+                >
+                  重新分析
+                </Button>
+                <Button
+                  variant="ghost" size="sm" className="h-10 text-zinc-500 hover:text-red-400" disabled={!!prepareJob && !prepDone || !activeCoverId}
+                  onClick={deleteCover} title="删除当前显示的翻唱版本(不提供找回)"
+                >
+                  删除此版本
+                </Button>
+              </CardBody>
+            </Card>
+          )}
           <div className="mt-5 grid gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader title="旋律谱(melody only)" desc={summaryBits.join(' · ')} />
@@ -187,7 +277,7 @@ export function CoverPage() {
                 right={<Badge status="queued">{prepResult.language === 'Chinese' ? '中文' : '其他语言'}</Badge>}
               />
               <CardBody className="space-y-3">
-                <Textarea rows={3} value={style} onChange={(e) => setStyle(e.target.value)} placeholder="例:Jazz-funk, warm lead vocal, Rhodes piano…" />
+                <Textarea aria-label="目标风格" rows={3} value={style} onChange={(e) => setStyle(e.target.value)} placeholder="例:Jazz-funk, warm lead vocal, Rhodes piano…" />
                 <div className="flex flex-wrap gap-1.5">
                   {STYLE_PRESETS.map((p, i) => (
                     <button key={i} onClick={() => setStyle(p)} className="rounded-full border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-emerald-500/50 hover:text-emerald-400">
@@ -196,11 +286,11 @@ export function CoverPage() {
                   ))}
                 </div>
                 <Label hint="ASR 原文已预填,改成带 [Verse] / [Chorus] 的分节歌词再生成">歌词校对</Label>
-                <Textarea rows={10} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="font-mono text-[13px]" />
+                <Textarea aria-label="歌词" rows={10} value={lyrics} onChange={(e) => setLyrics(e.target.value)} className="font-mono text-[13px]" />
                 <div className="flex items-end gap-3">
                   <div className="w-40">
                     <Label>Seed</Label>
-                    <Input value={seed} placeholder="随机" onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ''))} />
+                    <Input aria-label="随机种子" value={seed} placeholder="随机" onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, ''))} />
                   </div>
                   <Button className="flex-1" disabled={!style.trim() || !lyrics.trim() || !!genJob && !genDone} onClick={startCover}>
                     {genJob && !genDone ? <Loader2 className="animate-spin" size={15} /> : <Mic2 size={15} />}
