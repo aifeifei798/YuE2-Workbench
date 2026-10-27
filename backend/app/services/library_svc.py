@@ -18,11 +18,17 @@ _PROBES = None  # lazily loaded probe bundle ({tag: {zh, threshold, model}}) or 
 def _load_probes():
     global _PROBES
     if _PROBES is None:
-        p = settings.data_dir / "mtt_probes" / "probes.joblib"
-        if p.exists():
-            import joblib
+        # a locally retrained bundle wins; fall back to the packaged one
+        candidates = [
+            settings.data_dir / "mtt_probes" / "probes.joblib",
+            Path(__file__).parent / "tag_probes.joblib",
+        ]
+        for p in candidates:
+            if p.exists():
+                import joblib
 
-            _PROBES = joblib.load(p)
+                _PROBES = joblib.load(p)
+                break
         else:
             _PROBES = False  # probes not trained yet
     return _PROBES or None
