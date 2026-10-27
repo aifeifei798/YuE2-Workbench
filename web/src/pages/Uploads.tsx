@@ -93,13 +93,13 @@ export function UploadsPage() {
   }
 
   return (
-    <Page>
-      <Card>
+    <Page className="flex h-full flex-col">
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
           title={<span className="flex items-center gap-2"><Package size={15} /> 上传素材</span>}
           desc="扒谱 / 翻唱 / 母带共用的统一素材库:试听、复用、下载派生物、清理,一站管理"
         />
-        <CardBody className="space-y-4">
+        <CardBody className="flex min-h-0 flex-1 flex-col gap-4">
           <input ref={fileRef} type="file" accept="audio/*" aria-label="上传素材文件" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ''; pick(f) }} />
           <button
             onClick={() => fileRef.current?.click()}
@@ -112,7 +112,7 @@ export function UploadsPage() {
           </button>
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
 
-          <div className="overflow-x-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">

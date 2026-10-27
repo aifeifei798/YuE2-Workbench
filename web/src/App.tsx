@@ -37,7 +37,7 @@ function Nav({ role }: { role: string | null }) {
     return () => clearInterval(t)
   }, [])
   return (
-    <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
+    <header className="z-10 shrink-0 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
       <div className="mx-auto flex h-12 max-w-6xl items-center gap-5 px-5">
         <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
           <AudioLines size={17} className="text-emerald-400" /> YuE2 Workbench
@@ -114,19 +114,19 @@ export default function App() {
   }
   return (
     <HashRouter>
-      <div className="flex min-h-full flex-col">
+      <div className="flex h-dvh flex-col overflow-hidden">
         <Nav role={me.role} />
-        <main className="flex-1">
+        <main className="min-h-0 flex-1 overflow-y-auto">
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<ComposePage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectPage />} />
             <Route path="/transcribe" element={<TranscribePage />} />
-            <Route path="/uploads" element={<UploadsPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/cover" element={<CoverPage />} />
             <Route path="/master" element={<MasterPage />} />
+            <Route path="/uploads" element={<UploadsPage />} />
             <Route path="/blind" element={<BlindPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/system" element={<SystemPage />} />

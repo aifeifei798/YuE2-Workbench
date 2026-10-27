@@ -44,8 +44,8 @@ export function LeaderboardPage() {
   const pending = rows.filter((r) => !r.metrics).length
 
   return (
-    <Page>
-      <Card>
+    <Page className="flex h-full flex-col">
+      <Card className="shrink-0">
         <CardHeader
           title="评测排行榜"
           right={
@@ -66,17 +66,17 @@ export function LeaderboardPage() {
 
       {jobId && !done && <JobPanel jobId={jobId} events={events} done={done} title="批量评测" failedNote={latest?.detail} />}
 
-      <Card>
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
           title="全部版本 · 复合分排名"
           desc="0.45×歌词清晰度 + 0.30×结构连贯性 + 0.20×重构SNR + 0.05×低削波 —— 代理指标,最终以人耳为准"
         />
-        <CardBody className="p-0">
+        <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
           {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
           {!loading && rows.length === 0 && <div className="p-4 text-sm text-zinc-500">还没有版本,去创作一首。</div>}
           {rows.length > 0 && (
             <table className="w-full text-xs">
-              <thead className="bg-zinc-900 text-zinc-400">
+              <thead className="sticky top-0 z-10 bg-zinc-900 text-zinc-400">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-3 py-2 text-left">作品</th>

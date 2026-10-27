@@ -50,13 +50,13 @@ export function SystemPage() {
   }
 
   return (
-    <Page>
-      <Card>
+    <Page className="flex h-full flex-col">
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
           title={<span className="flex items-center gap-2"><Settings size={15} /> 系统 · 模型管理</span>}
           desc="模型按需懒加载,不手动加载也会在用到时自动载入;全部卸载后首次生成会重新加载 YuE2(约 10 秒)"
         />
-        <CardBody className="p-0">
+        <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
           {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
           <div className="divide-y divide-zinc-800">
             {rows.map((m) => (

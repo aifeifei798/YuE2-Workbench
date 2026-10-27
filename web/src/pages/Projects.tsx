@@ -16,13 +16,13 @@ export function ProjectsPage() {
   }, [])
 
   return (
-    <Page>
-      <Card>
+    <Page className="flex h-full flex-col">
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader
           title={<span className="flex items-center gap-2"><FolderOpen size={15} /> 项目库</span>}
           desc="每次创作都是一个项目,里面按版本演进;点进项目可试听、挖补、改谱、母带"
         />
-        <CardBody className="p-0">
+        <CardBody className="min-h-0 flex-1 overflow-y-auto p-0">
           {loading && <div className="p-4 text-sm text-zinc-500">加载中…</div>}
           {!loading && projects.length === 0 && (
             <div className="p-4 text-sm text-zinc-500">

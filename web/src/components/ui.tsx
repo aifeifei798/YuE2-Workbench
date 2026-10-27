@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/job'
 
-/** 全站统一页面容器:所有页面同一宽度(6xl)、同一垂直节奏(space-y-5)。 */
+/** 全站统一页面容器:宽度(6xl)、垂直节奏(space-y-5)统一,并至少撑满视口高度。 */
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('mx-auto w-full max-w-6xl space-y-5 p-5', className)}>{children}</div>
+  return <div className={cn('mx-auto min-h-full w-full max-w-6xl space-y-5 p-5', className)}>{children}</div>
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
