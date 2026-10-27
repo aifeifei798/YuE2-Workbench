@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     asr_aligner_repo: str = "Qwen/Qwen3-ForcedAligner-0.6B"
     agent_repo: str = "Qwen/Qwen3-0.6B"
     max_queue: int = 10
+    admin_password: str = ""   # empty = auth disabled (local mode)
+    share_password: str = ""   # optional listen-only role
+    auth_secret: str = ""      # cookie signing key; derived from admin_password if unset
 
 
 settings = Settings()

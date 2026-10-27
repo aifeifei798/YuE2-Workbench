@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { AudioLines, Ear, FileAudio, FolderOpen, LibraryBig, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
+import { AudioLines, Ear, FileAudio, FolderOpen, LibraryBig, LogOut, Mic2, Settings, Sparkles, Trophy } from 'lucide-react'
 import { ComposePage } from '@/pages/Compose'
 import { ProjectsPage } from '@/pages/Projects'
 import { ProjectPage } from '@/pages/Project'
@@ -12,10 +12,21 @@ import { LeaderboardPage } from '@/pages/Leaderboard'
 import { SystemPage } from '@/pages/System'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { JobCenter } from '@/components/JobCenter'
+import { LoginPage } from '@/components/LoginPage'
+import { api } from '@/lib/api'
 
 type Health = { status: string; models: { yue2: { loaded: boolean }; gpu?: { name: string; free_gb: number; total_gb: number } } }
+type Me = { enabled: boolean; role: string | null }
 
-function Nav() {
+function useMe(): [Me | null, (m: Me) => void] {
+  const [me, setMe] = useState<Me | null>(null)
+  useEffect(() => {
+    api<Me>('/me').then(setMe).catch(() => setMe({ enabled: false, role: 'admin' }))
+  }, [])
+  return [me, setMe]
+}
+
+function Nav({ role }: { role: string | null }) {
   const [health, setHealth] = useState<Health | null>(null)
   useEffect(() => {
     const load = () => fetch('/api/healthz').then((r) => r.json()).then(setHealth).catch(() => setHealth(null))
@@ -51,9 +62,11 @@ function Nav() {
           <NavLink to="/leaderboard" title="排行榜" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
             <Trophy size={14} />
           </NavLink>
-          <NavLink to="/system" title="系统/模型管理" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
-            <Settings size={14} />
-          </NavLink>
+          {role === 'admin' && (
+            <NavLink to="/system" title="系统/模型管理" className={({ isActive }) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`}>
+              <Settings size={14} />
+            </NavLink>
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-zinc-500">
           {health?.models?.gpu && (
@@ -62,6 +75,18 @@ function Nav() {
             </span>
           )}
           <JobCenter />
+          {role && (
+            <button
+              title={role === 'admin' ? '登出(管理员)' : '登出(只听)'}
+              className="rounded-md p-1 text-zinc-500 hover:text-zinc-200"
+              onClick={async () => {
+                await api('/logout', { method: 'POST' }).catch(() => {})
+                location.reload()
+              }}
+            >
+              <LogOut size={14} />
+            </button>
+          )}
           <span className={`h-2 w-2 rounded-full ${health?.status === 'ok' ? 'bg-emerald-400' : 'bg-red-400'}`} />
         </div>
       </div>
@@ -70,10 +95,19 @@ function Nav() {
 }
 
 export default function App() {
+  const [me, setMe] = useMe()
+  if (!me) return <div className="p-8 text-sm text-zinc-500">加载中…</div>
+  if (me.enabled && !me.role) {
+    return (
+      <HashRouter>
+        <LoginPage onLogin={(role) => setMe({ enabled: true, role })} />
+      </HashRouter>
+    )
+  }
   return (
     <HashRouter>
       <div className="flex min-h-full flex-col">
-        <Nav />
+        <Nav role={me.role} />
         <main className="flex-1">
           <ErrorBoundary>
           <Routes>

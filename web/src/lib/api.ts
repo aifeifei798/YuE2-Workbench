@@ -60,6 +60,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
   if (!res.ok) {
+    if (res.status === 401) {
+      // session expired: reload lands on the login gate (/api/me returns no role)
+      location.reload()
+      return new Promise<T>(() => {}) // page is going away
+    }
     const text = await res.text().catch(() => '')
     throw new Error(`${res.status} ${text.slice(0, 300)}`)
   }

@@ -145,6 +145,25 @@ def dedup(threshold: float = 0.85):
         db.close()
 
 
+@router.post("/{item_id}/retag")
+def retag_item(item_id: str):
+    """Re-run tagging (probes + heuristics) from the stored embedding."""
+    db = SessionLocal()
+    try:
+        it = db.get(LibraryItem, item_id)
+        if it is None:
+            raise HTTPException(404)
+        vec = library_svc._load_vector(it)
+        if vec is None:
+            raise HTTPException(400, "no embedding stored")
+        probe = library_svc.probe_tags(vec)
+        it.tags_json = list(dict.fromkeys(probe + library_svc.compute_tags(it.path, it.key, it.tempo)))
+        db.commit()
+        return {"tags": it.tags_json, "probe_tags": probe}
+    finally:
+        db.close()
+
+
 @router.delete("/{item_id}", status_code=204)
 def delete_item(item_id: str):
     db = SessionLocal()

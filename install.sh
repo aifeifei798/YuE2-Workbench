@@ -165,6 +165,8 @@ _pip huggingface-hub==0.36.2 --force-reinstall --no-deps 2>/dev/null || true
 ok "固定 huggingface-hub 版本(yue2 要求 0.36.2)"
 _pip verovio cairosvg pypdf
 ok "乐谱 PDF 渲染(verovio + cairosvg + pypdf)"
+_pip scikit-learn joblib
+ok "MERT 探针打标(sklearn 逻辑回归头)"
 
 $PY - <<'EOF'
 mods = ["torch", "transformers", "yue2", "fastapi", "sqlalchemy", "soundfile",

@@ -12,6 +12,36 @@ from ..models.tables import LibraryItem, uid
 from .mert_svc import analyze_file, segment_structure
 from .transcribe_svc import transcribe_file
 
+_PROBES = None  # lazily loaded probe bundle ({tag: {zh, threshold, model}}) or False
+
+
+def _load_probes():
+    global _PROBES
+    if _PROBES is None:
+        p = settings.data_dir / "mtt_probes" / "probes.joblib"
+        if p.exists():
+            import joblib
+
+            _PROBES = joblib.load(p)
+        else:
+            _PROBES = False  # probes not trained yet
+    return _PROBES or None
+
+
+def probe_tags(embedding) -> list[str]:
+    """中文 genre/mood/instrument tags from trained MERT probes (empty if untrained)."""
+    probes = _load_probes()
+    if not probes:
+        return []
+    vec = np.asarray(embedding, dtype=np.float32)[None]
+    vec = vec / (np.linalg.norm(vec) + 1e-9)
+    out = []
+    for en, meta in probes["tags"].items():
+        prob = float(meta["model"].predict_proba(vec)[0][1])
+        if prob >= meta["threshold"]:
+            out.append(meta["zh"])
+    return out
+
 
 def compute_tags(path: str, key: str | None = None, tempo: float | None = None) -> list[str]:
     """Heuristic mood/energy tags from measurable features (no external data needed)."""
@@ -58,6 +88,7 @@ def import_item(params: dict, emit) -> dict:
         embedding_path = settings.data_dir / "library" / f"{item_id}.emb.npy"
         np.save(embedding_path, result["embedding"])
         segments = segment_structure(result["frames_25hz"])
+        tags = list(dict.fromkeys(probe_tags(result["embedding"]) + compute_tags(str(dest))))
 
         item = LibraryItem(
             id=item_id,
@@ -67,7 +98,7 @@ def import_item(params: dict, emit) -> dict:
             duration=result["duration"],
             structure_json={"segments": segments},
             embedding_path=str(embedding_path),
-            tags_json=compute_tags(str(dest), tempo=None),
+            tags_json=tags,
         )
         db.add(item)
         db.commit()
@@ -84,7 +115,7 @@ def import_item(params: dict, emit) -> dict:
                 item.key = keys[0].get("key")
             if summary.get("tempo"):
                 item.tempo = summary["tempo"]
-            item.tags_json = compute_tags(str(dest), item.key, item.tempo)
+            item.tags_json = list(dict.fromkeys(probe + compute_tags(str(dest), item.key, item.tempo)))
             db.commit()
             emit(stage="transcribe", detail="done")
 

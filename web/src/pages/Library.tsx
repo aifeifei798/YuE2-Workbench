@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GitCompare, Loader2, ListMusic, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
+import { GitCompare, Loader2, ListMusic, RotateCcw, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
 import { api, type JobEvent } from '@/lib/api'
 import { useJobStream } from '@/lib/job'
 import { JobPanel } from '@/components/JobPanel'
@@ -165,6 +165,13 @@ export function LibraryPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="ghost" size="sm" title="以此曲风格创作" className="h-8 w-8 p-0" onClick={() => navigate('/', { state: { refItemId: it.id } })}><Wand2 size={15} /></Button>
+                  <Button variant="ghost" size="sm" title="重新打标签(探针)" className="h-8 w-8 p-0" disabled={busy === `tag:${it.id}`} onClick={() => {
+                    setBusy(`tag:${it.id}`)
+                    api<{ tags: string[] }>(`/library/${it.id}/retag`, { method: 'POST' })
+                      .then(() => refresh())
+                      .catch((e) => alert(String(e)))
+                      .finally(() => setBusy(null))
+                  }}><RotateCcw size={15} /></Button>
                   <Button variant="ghost" size="sm" title="找相似" className="h-8 w-8 p-0" disabled={busy === `sim:${it.id}`} onClick={() => showSimilar(it)}><Sparkles size={15} /></Button>
                   <Button variant="ghost" size="sm" title="生成歌单" className="h-8 w-8 p-0" disabled={busy === `pl:${it.id}`} onClick={() => makePlaylist(it)}><ListMusic size={15} /></Button>
                   <Button variant="ghost" size="sm" title="删除" className="h-8 w-8 p-0" onClick={() => api(`/library/${it.id}`, { method: 'DELETE' }).then(refresh).catch((e) => alert(String(e)))}><Trash2 size={15} /></Button>

@@ -9,13 +9,14 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .core.config import settings
 from .core.db import init_db
-from .routers import agent, blind, compose, cover, jobs, library, projects, system, tools, versions, workspace
-from .services import queue as job_queue
+from .routers import agent, auth, blind, compose, cover, jobs, library, projects, system, tools, versions, workspace
+from .services import auth_svc, queue as job_queue
 from .services.queue import worker_loop
 
 
@@ -51,7 +52,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router, versions.router, blind.router):
+_AUTH_EXEMPT = {"/api/healthz", "/api/login", "/api/me"}
+
+
+@app.middleware("http")
+async def auth_middleware(request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or not settings.admin_password:
+        return await call_next(request)
+    if path.startswith("/api/") or path == "/audio" or path.startswith("/audio/"):
+        if path not in _AUTH_EXEMPT:
+            secret = auth_svc.secret_for(settings.admin_password, settings.auth_secret)
+            role = auth_svc.parse_token(request.cookies.get(auth_svc.COOKIE), secret)
+            if role is None:
+                return JSONResponse({"detail": "unauthorized"}, status_code=401)
+            if role == "listen" and request.method not in ("GET", "HEAD"):
+                return JSONResponse({"detail": "listen-only session"}, status_code=403)
+            request.state.role = role
+    return await call_next(request)
+
+for r in (auth.router, system.router, compose.router, projects.router, jobs.router, tools.router, library.router, cover.router, workspace.router, agent.router, versions.router, blind.router):
     app.include_router(r)
 
 app.mount("/audio", DataStaticFiles(directory=settings.data_dir), name="audio")
