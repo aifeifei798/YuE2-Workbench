@@ -9,6 +9,8 @@ export type WaveRegionsHandle = {
   /** move the playhead cursor to t (seconds) */
   setTime: (t: number) => void
   pause: () => void
+  /** draw / update the selection region (seconds) */
+  setRegion: (start: number, end: number) => void
 }
 
 export const WaveRegionsPlayer = forwardRef<WaveRegionsHandle, {
@@ -34,6 +36,18 @@ export const WaveRegionsPlayer = forwardRef<WaveRegionsHandle, {
     () => ({
       setTime: (t: number) => wsRef.current?.setTime(t),
       pause: () => wsRef.current?.pause(),
+      setRegion: (start: number, end: number) => {
+        const regions = regionsRef.current
+        if (!regions) return
+        const prev = prevRegionRef.current as { start: number; end: number } | null
+        if (prev) {
+          // setters re-render the region and fire region-updated → report
+          prev.start = start
+          prev.end = end
+        } else {
+          regions.addRegion({ start, end, color: 'rgba(52, 211, 153, 0.18)' })
+        }
+      },
     }),
     [],
   )

@@ -753,12 +753,48 @@ function Workspace({
             onDuration={setDuration}
           />
           <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-            {region ? (
-              <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-emerald-400">
-                选区 {region[0].toFixed(1)}s – {region[1].toFixed(1)}s({(region[1] - region[0]).toFixed(1)}s)
-              </span>
-            ) : (
-              <span>{t('在波形上拖选一段(≥1s)', 'Drag-select a region on the waveform (≥1s)')}</span>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number" step={0.1} min={0} max={duration}
+                aria-label={t('选区起点(秒)', 'Region start (s)')}
+                value={region ? region[0] : ''}
+                placeholder="0.0"
+                className="h-8 w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center font-mono text-xs"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (Number.isNaN(v)) return
+                  const s = Math.max(0, v)
+                  const e2 = region ? Math.max(region[1], s + 0.1) : Math.min(duration || s + 5, s + 5)
+                  const next: [number, number] = [s, Math.round(Math.min(e2, duration || e2) * 10) / 10]
+                  setRegion(next)
+                  waveRef.current?.setRegion(next[0], next[1])
+                }}
+              />
+              <span className="text-zinc-600">–</span>
+              <Input
+                type="number" step={0.1} min={0} max={duration}
+                aria-label={t('选区终点(秒)', 'Region end (s)')}
+                value={region ? region[1] : ''}
+                placeholder={(duration || 15).toFixed(1)}
+                className="h-8 w-20 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center font-mono text-xs"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (Number.isNaN(v)) return
+                  const e2 = Math.max(0, v)
+                  const s = region ? Math.min(region[0], Math.max(0, e2 - 0.1)) : 0
+                  const next: [number, number] = [Math.round(s * 10) / 10, Math.round(Math.min(e2, duration || e2) * 10) / 10]
+                  setRegion(next)
+                  waveRef.current?.setRegion(next[0], next[1])
+                }}
+              />
+              {region && (
+                <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-emerald-400">
+                  {(region[1] - region[0]).toFixed(1)}s
+                </span>
+              )}
+            </div>
+            {!region && (
+              <span>{t('在波形上拖选一段(≥1s),或直接输入起止时间', 'Drag-select on the waveform (≥1s), or type the times')}</span>
             )}
             <span className="flex-1" />
             <Button size="sm" variant="outline" disabled={!region} onClick={audition}>
